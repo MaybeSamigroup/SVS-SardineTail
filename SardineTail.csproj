@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net6</TargetFramework>
+        <AssemblyName>SardineTail</AssemblyName>
+        <Description>Runtime mod loader for SamabakeScramble Character Creation</Description>
+        <Version>0.1.0</Version>
+        <LangVersion>latest</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <GamePath>$([MSBuild]::GetRegistryValue('HKEY_CURRENT_USER\Software\ILLGAMES\SamabakeScramble','INSTALLDIR'))</GamePath>
+    </PropertyGroup>
+	<ItemGroup>
+		<Item Include="Definitions.cs"/>
+		<Reference Include="0Harmony">
+			<HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="BepInEx.Core">
+			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Core.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="BepInEx.Unity.IL2CPP">
+			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Il2CppInterop.Runtime">
+			<HintPath>$(GamePath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Il2Cppmscorlib">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\Il2Cppmscorlib.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UnityEngine.CoreModule">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\UnityEngine.CoreModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UnityEngine.AssetBundleModule">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\UnityEngine.AssetBundleModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UnityEngine.ImageConversionModule">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\UnityEngine.ImageConversionModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UniRx">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\UniRx.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UniTask">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\UniTask.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Assembly-CSharp">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\Assembly-CSharp.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="IL">
+			<HintPath>$(GamePath)\BepInEx\SamabakeScramble\interop\IL.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="System.Windows.Forms">
+			<HintPath>$(GamePath)\dotnet\System.Windows.Forms.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="BepinEx.KeyboardShortcut">
+			<HintPath>$(GamePath)\BepInEx\plugins\ConfigurationManager\BepinEx.KeyboardShortcut.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Fishbone">
+			<HintPath>$(GamePath)\BepInEx\plugins\Fishbone.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+	<Target Name="Deploy" AfterTargets="Build">
+		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\" />
+	</Target>
+	<Target Name="Release" AfterTargets="Build">
+		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="GameRoot\BepinEx\plugins"/>
+		<ZipDirectory SourceDirectory="GameRoot" Overwrite="true" DestinationFile="release.zip"/>
+	</Target>
+</Project>
