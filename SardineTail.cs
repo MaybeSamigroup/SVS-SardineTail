@@ -18,6 +18,7 @@ using Mod = System.Tuple<ChaListDefine.KeyType, string>;
 using ZipEntry = System.Tuple<string[], System.IO.Compression.ZipArchiveEntry>;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
+using BepInEx.Configuration;
 
 namespace SardineTail
 {
@@ -202,6 +203,7 @@ namespace SardineTail
         internal override void Initialize() =>
             PkgPath
                 .With(() => LoadSoftMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
+                .With(() => LoadHardMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
                 .Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId).Collect(entry.Value));
     }
     internal class ArchivePackage : ModPackage
@@ -289,7 +291,8 @@ namespace SardineTail
             Directory.GetFiles(path).Where(IsArchivePackage)
                 .SelectMany(ArchiveToPackage).Concat(Directory.GetDirectories(path).SelectMany(ArchivePackages));
         static IEnumerable<ModPackage> DirectoryPackages =>
-            Directory.GetDirectories(Plugin.DevelopmentPath).SelectMany(DirectoryToPackage);
+            Plugin.DevelopmentMode.Value ?
+                Directory.GetDirectories(Plugin.DevelopmentPath).SelectMany(DirectoryToPackage) : [];
         static bool IsArchivePackage(string path) =>
             ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
         static Dictionary<string, ModPackage> Packages;
@@ -322,18 +325,20 @@ namespace SardineTail
     [BepInPlugin(Guid, Name, Version)]
     public class Plugin : BasePlugin
     {
-        internal const string AssetBundle = "sardinetail.unity3d";
-        internal static readonly string PackagePath = Path.Combine(Paths.GameRootPath, "sardines");
-        internal static readonly string DevelopmentPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "packages");
-        internal static Plugin Instance;
         public const string Process = "SamabakeScramble";
         public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
         public const string Version = "0.3.0";
+        internal const string AssetBundle = "sardinetail.unity3d";
+        internal static readonly string PackagePath = Path.Combine(Paths.GameRootPath, "sardines");
+        internal static readonly string DevelopmentPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "packages");
+        internal static Plugin Instance;
+        internal static ConfigEntry<bool> DevelopmentMode;
         private Harmony Patch;
         public override void Load() =>
             Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
                 .With(() => Instance = this)
+                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
                 .With(ModPackageExtensions.Initialize)
                 .With(ModificationExtensions.Initialize);
         public override bool Unload() =>

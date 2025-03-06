@@ -63,10 +63,6 @@
 			<HintPath>$(GamePath)\dotnet\System.Windows.Forms.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
-		<Reference Include="BepinEx.KeyboardShortcut">
-			<HintPath>$(GamePath)\BepInEx\plugins\ConfigurationManager\BepinEx.KeyboardShortcut.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
 		<Reference Include="Fishbone">
 			<HintPath>$(GamePath)\BepInEx\plugins\Fishbone.dll</HintPath>
 			<Private>False</Private>
