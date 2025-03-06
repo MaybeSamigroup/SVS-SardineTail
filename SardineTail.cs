@@ -203,7 +203,7 @@ namespace SardineTail
         internal override void Initialize() =>
             PkgPath
                 .With(() => LoadSoftMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
-                .With(() => LoadHardMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
+                .With(() => LoadHardMigration(Path.Combine(PkgPath, HARD_MIGRATION)))
                 .Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId).Collect(entry.Value));
     }
     internal class ArchivePackage : ModPackage
@@ -338,7 +338,7 @@ namespace SardineTail
         public override void Load() =>
             Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
                 .With(() => Instance = this)
-                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
+                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", true))
                 .With(ModPackageExtensions.Initialize)
                 .With(ModificationExtensions.Initialize);
         public override bool Unload() =>
