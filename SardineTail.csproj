@@ -10,6 +10,7 @@
     </PropertyGroup>
 	<ItemGroup>
 		<Item Include="Definitions.cs"/>
+		<Item Include="Modifications.cs"/>
 		<Reference Include="0Harmony">
 			<HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
 			<Private>False</Private>

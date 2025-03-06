@@ -167,7 +167,7 @@ namespace SardineTail
                     new Text(Ktype.MainAB, Plugin.AssetBundle),
                     new Asset(Ktype.MainData),
                     new Text(Ktype.ShapeAnimeAB, Plugin.AssetBundle),
-                    new Text(Ktype.ShapeAnime),
+                    new Asset(Ktype.ShapeAnime),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex)
                 ],
@@ -232,7 +232,7 @@ namespace SardineTail
                     new Text(Ktype.MainAB, Plugin.AssetBundle),
                     new Asset(Ktype.MainData),
                     new Text(Ktype.ShapeAnimeAB, Plugin.AssetBundle),
-                    new Text(Ktype.ShapeAnime),
+                    new Asset(Ktype.ShapeAnime),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),

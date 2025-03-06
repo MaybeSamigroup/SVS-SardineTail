@@ -94,7 +94,6 @@ namespace SardineTail
                 .Select(subpath => Path.GetRelativePath(Path.GetDirectoryName(subpath), subpath))
                 .GroupBy(name => Enum.TryParse<CatNo>(name, out var value) ? value : CatNo.mt_dummy)
                 .Where(group => Cache.ContainsKey(group.Key)).ToDictionary(group => group.Key, group => Path.Combine(path, group.First()));
-
         internal static IEnumerable<IGrouping<CatNo, ZipEntry>> Categories(this ZipArchive archive) =>
             archive.Entries.Select(entry => new ZipEntry(entry.FullName.Split(Path.AltDirectorySeparatorChar), entry))
                 .GroupBy(entry => Enum.TryParse<CatNo>(entry.Item1[0], out var value) ? value : CatNo.mt_dummy)
@@ -102,16 +101,13 @@ namespace SardineTail
     }
     internal abstract class CategoryCollector<T>
     {
-        CatNo Index;
-        string PkgId;
+        internal CatNo Index;
+        internal string PkgId;
         internal CategoryCollector(CatNo index, string pkgId) => (Index, PkgId) = (index, pkgId);
-        internal IEnumerable<Mod> CollectMods(Mods mods) => Index.Collect(PkgId, mods);
-        internal IEnumerable<Mod> CollectMods(string path) => Index.Collect(PkgId, path);
         internal bool Resolve(IEnumerable<string> modId, IEnumerable<Mod> mods) =>
             Index.Resolve(mods).With(result => result.Maybe(() => ModPackageExtensions.Register(Index, PkgId, modId, ToListInfoBase(mods))));
         ListInfoBase ToListInfoBase(IEnumerable<Mod> mods) =>
             Index.ToListInfoBase(mods.ToDictionary(item => item.Item1, item => item.Item2));
-        internal IEnumerable<Mod> Defaults => Index.Defaults();
         internal abstract void Collect(T input);
     }
     internal class DirectoryCollector : CategoryCollector<string>
@@ -119,23 +115,23 @@ namespace SardineTail
         string PkgRoot;
         internal DirectoryCollector(CatNo index, string pkgId) : base(index, pkgId) { }
         IEnumerable<Mod> Process(string path) =>
-            CollectMods(Path.GetRelativePath(PkgRoot, path)).Concat(
+            Index.Collect(PkgId, Path.GetRelativePath(PkgRoot, path)).Concat(
                 "values.json".Equals(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)
-                    ? CollectMods(JsonSerializer.Deserialize<Mods>(File.ReadAllText(path))) : []);
+                    ? Index.Collect(PkgId, JsonSerializer.Deserialize<Mods>(File.ReadAllText(path))) : []);
         void Collect(string path, IEnumerable<Mod> mods) =>
             Verify(path, Directory.GetFiles(path).SelectMany(Process).Concat(mods).DistinctBy(item => item.Item1));
         void Verify(string path, IEnumerable<Mod> mods) =>
             (!Resolve(Path.GetRelativePath(PkgRoot, path).Split(Path.DirectorySeparatorChar), mods))
                 .Maybe(() => Directory.GetDirectories(path).Do(subpath => Collect(subpath, mods)));
-        internal override void Collect(string path) => Collect(path.With(() => PkgRoot = Path.GetDirectoryName(path)), Defaults);
+        internal override void Collect(string path) => Collect(path.With(() => PkgRoot = Path.GetDirectoryName(path)), Index.Defaults());
     }
     internal class ArchiveCollector : CategoryCollector<IEnumerable<ZipEntry>>
     {
         internal ArchiveCollector(CatNo index, string pkgId) : base(index, pkgId) { }
         IEnumerable<Mod> Process(ZipEntry entry) =>
-            CollectMods(entry.Item2.FullName).Concat(
+            Index.Collect(PkgId, entry.Item2.FullName).Concat(
                 "values.json".Equals(entry.Item2.Name, StringComparison.OrdinalIgnoreCase)
-                    ? CollectMods(JsonSerializer.Deserialize<Mods>(entry.Item2.Open())) : []);
+                    ? Index.Collect(PkgId, JsonSerializer.Deserialize<Mods>(entry.Item2.Open())) : []);
         void Collect(IEnumerable<string> paths, IEnumerable<Mod> mods, IEnumerable<ZipEntry> entries) =>
             Verify(paths, entries.Where(entry => entry.Item1.Length == 1)
                 .SelectMany(Process).Concat(mods).DistinctBy(item => item.Item1),
@@ -144,20 +140,29 @@ namespace SardineTail
             (!Resolve(paths, mods)).Maybe(() => entries.GroupBy(entry => entry.Item1[0])
                 .Do(group => Collect(paths.Concat([group.Key]),
                     mods, group.Select(entry => new ZipEntry(entry.Item1[1..], entry.Item2)))));
-        internal override void Collect(IEnumerable<ZipEntry> entries) => Collect([], Defaults, entries);
+        internal override void Collect(IEnumerable<ZipEntry> entries) => Collect([], Index.Defaults(), entries);
     }
+    internal enum HardMigrationInfo { ModId, Version }
     internal abstract class ModPackage
     {
+        internal const string HARD_MIGRATION = "hardmig.json";
+        internal const string SOFT_MIGRATION = "softmig.json";
         internal string PkgId;
         internal Version PkgVersion;
         internal ModPackage(string pkgId, Version version) => (PkgId, PkgVersion) = (pkgId, version);
+        internal Dictionary<Version, Dictionary<string, string>> SoftMigrations = new ();
+        string SoftMigration(ModInfo info) =>
+            SoftMigrations.Where(entry => entry.Key < info.PkgVersion).OrderBy(entry => entry.Key)
+                .Aggregate(info.ModId, (modId, entry) => entry.Value.GetValueOrDefault(modId, modId));
+        internal readonly Dictionary<string, int> ModToId = new ();
+        internal int ToId(ModInfo info, int id) => ModToId.GetValueOrDefault(SoftMigration(info), id);
         internal readonly Dictionary<string, AssetBundle> Cache = new();
         internal void Unload() =>
             Cache.With(cache => cache.Values.Do(item => item.Unload(true))).Clear();
         internal UnityEngine.Object GetAsset(string bundle, string asset) =>
             GetAssetBundle(bundle).LoadAsset(asset);
         internal Texture2D GetTexture(string path) =>
-            ToTexture(LoadBytes(path)).With(WrapMode(path));
+            ToTexture(LoadBytes(path)).With(WrapMode(Path.GetFileNameWithoutExtension(path)));
         internal Texture2D ToTexture(byte[] bytes) =>
             new Texture2D(256, 256).With(t2d => ImageConversion.LoadImage(t2d, bytes));
         Action<Texture2D> WrapMode(string path) =>
@@ -181,8 +186,23 @@ namespace SardineTail
             AssetBundle.LoadFromFile(Path.Combine(PkgPath, path));
         internal override byte[] LoadBytes(string path) =>
             File.ReadAllBytes(Path.Combine(PkgPath, path));
+        void LoadHardMigration(string path) =>
+            File.Exists(path).Maybe(() => JsonSerializer
+                .Deserialize<Dictionary<int, Dictionary<HardMigrationInfo, string>>>(File.ReadAllText(path))
+                .Do(entry => ModPackageExtensions.HardMigrations.TryAdd(entry.Key, new ModInfo() {
+                    PkgId = PkgId,
+                    PkgVersion = Version.Parse(entry.Value[HardMigrationInfo.Version]),
+                    ModId = entry.Value[HardMigrationInfo.ModId],
+                })));
+        void LoadSoftMigration(string path) =>
+            File.Exists(path).Maybe(() => SoftMigrations =
+                JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(path))
+                    .Where(item => Version.TryParse(item.Key, out var _))
+                    .ToDictionary(item => Version.Parse(item.Key), item => item.Value));
         internal override void Initialize() =>
-            PkgPath.Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId).Collect(entry.Value));
+            PkgPath
+                .With(() => LoadSoftMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
+                .Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId).Collect(entry.Value));
     }
     internal class ArchivePackage : ModPackage
     {
@@ -194,15 +214,60 @@ namespace SardineTail
             LoadBytes(ZipFile.OpenRead(ArchivePath).GetEntry(path));
         internal byte[] LoadBytes(ZipArchiveEntry entry) =>
             new BinaryReader(entry.Open()).ReadBytes((int)entry.Length);
+        void LoadHardMigration(ZipArchiveEntry entry) =>
+            (entry != null).Maybe(() => JsonSerializer
+                .Deserialize<Dictionary<int, Dictionary<HardMigrationInfo, string>>>(entry.Open())
+                .Do(entry => ModPackageExtensions.HardMigrations.TryAdd(entry.Key, new ModInfo() {
+                    PkgId = PkgId,
+                    PkgVersion = Version.Parse(entry.Value[HardMigrationInfo.Version]),
+                    ModId = entry.Value[HardMigrationInfo.ModId],
+                })));
+        void LoadSoftMigration(ZipArchiveEntry entry) =>
+            (entry != null).Maybe(() => SoftMigrations =
+                JsonSerializer.Deserialize<Dictionary<Version, Dictionary<string, string>>>(entry.Open()));
         internal override void Initialize() =>
-            ZipFile.OpenRead(ArchivePath).Categories().Do(group => new ArchiveCollector(group.Key, PkgId).Collect(group));
+            ZipFile.OpenRead(ArchivePath)
+                .With(archive => LoadSoftMigration(archive.GetEntry(SOFT_MIGRATION)))
+                .With(archive => LoadHardMigration(archive.GetEntry(HARD_MIGRATION)))
+                .Categories().Do(group => new ArchiveCollector(group.Key, PkgId).Collect(group));
     }
     internal static class ModPackageExtensions
     {
-        internal static Dictionary<CatNo, Dictionary<string, ListInfoBase>> Mods = new();
         internal static void Register(CatNo categoryNo, string pkgId, IEnumerable<string> modId, ListInfoBase info) =>
-            (Mods[categoryNo] = Mods.TryGetValue(categoryNo, out var mods) ? mods : new())
-                .Add(string.Join(':', [pkgId, .. modId]).With(Plugin.Instance.Log.LogDebug), info);
+            Plugin.Instance.Log.LogDebug($"{pkgId}:{string.Join(Path.AltDirectorySeparatorChar, modId)}"
+                .With(modId => Packages[pkgId].ModToId.Add(modId, info.Id)).With(modId => RegisterIdToMod(categoryNo, pkgId, modId, info)));
+        internal static ModInfo ToModInfo(this ChaFileDefine.HairKind value, int id) =>
+            id < 0 ? value switch {
+                ChaFileDefine.HairKind.back => CatNo.bo_hair_b.ToModInfo(id),
+                ChaFileDefine.HairKind.front => CatNo.bo_hair_f.ToModInfo(id),
+                ChaFileDefine.HairKind.side => CatNo.bo_hair_s.ToModInfo(id),
+                ChaFileDefine.HairKind.option => CatNo.bo_hair_o.ToModInfo(id),
+                _ => throw new ArgumentOutOfRangeException()
+            } : null;
+        internal static ModInfo ToModInfo(this ChaFileDefine.ClothesKind value, int id) =>
+            id < 0 ? value switch {
+                ChaFileDefine.ClothesKind.top => CatNo.co_top.ToModInfo(id),
+                ChaFileDefine.ClothesKind.bot => CatNo.co_bot.ToModInfo(id),
+                ChaFileDefine.ClothesKind.bra => CatNo.co_bra.ToModInfo(id),
+                ChaFileDefine.ClothesKind.shorts => CatNo.co_shorts.ToModInfo(id),
+                ChaFileDefine.ClothesKind.gloves => CatNo.co_gloves.ToModInfo(id),
+                ChaFileDefine.ClothesKind.panst => CatNo.co_panst.ToModInfo(id),
+                ChaFileDefine.ClothesKind.socks => CatNo.co_socks.ToModInfo(id),
+                ChaFileDefine.ClothesKind.shoes => CatNo.co_shoes.ToModInfo(id),
+                _ => throw new ArgumentOutOfRangeException()
+            } : null;
+        internal static ModInfo ToModInfo(this HumanDataAccessory.PartsInfo value, int id) =>
+            id < 0 ? ((CatNo)value.type).ToModInfo(id) : null;
+        internal static ModInfo ToModInfo(this CatNo categoryNo, int id) =>
+            id < 0 ? IdToMod[categoryNo].GetValueOrDefault(id) : null;
+        static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod = new ();
+        static void RegisterIdToMod(CatNo categoryNo, string pkgId, string modId, ListInfoBase info) =>
+            (IdToMod[categoryNo] = IdToMod.TryGetValue(categoryNo, out var mods) ? mods : new())
+                .Add(info.Id, new ModInfo() {
+                    PkgId = pkgId,
+                    PkgVersion = Packages[pkgId].PkgVersion,
+                    ModId = modId,
+                });
         static IEnumerable<Version> ToVersion(this string[] items) =>
             items.Length switch
             {
@@ -228,6 +293,10 @@ namespace SardineTail
         static bool IsArchivePackage(string path) =>
             ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
         static Dictionary<string, ModPackage> Packages;
+        internal static Dictionary<int, ModInfo> HardMigrations = new();
+        internal static int ToId(this ModInfo info, int id) => 
+            HardMigrations.TryGetValue(id, out var mod) ? Packages[mod.PkgId].ToId(mod, id)
+                : info != null ? Packages[info.PkgId].ToId(info, id) : id;
         static void Initialize(this Dictionary<string, ModPackage> packages) =>
             (Packages = packages).Values.Do(item => item.Initialize());
         internal static void Initialize() =>
@@ -236,7 +305,7 @@ namespace SardineTail
         internal static UnityEngine.Object ToAsset(this string[] items) =>
             items.Length switch
             {
-                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(items[1]),
+                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
                 3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
                 _ => null
             };
@@ -260,12 +329,13 @@ namespace SardineTail
         public const string Process = "SamabakeScramble";
         public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
-        public const string Version = "0.1.0";
+        public const string Version = "0.3.0";
         private Harmony Patch;
         public override void Load() =>
             Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
                 .With(() => Instance = this)
-                .With(ModPackageExtensions.Initialize);
+                .With(ModPackageExtensions.Initialize)
+                .With(ModificationExtensions.Initialize);
         public override bool Unload() =>
             true.With(Patch.UnpatchSelf) && base.Unload();
     }
