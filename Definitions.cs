@@ -5,9 +5,11 @@ using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
-    internal static partial class CategoryNoExtensions {
-        static Tuple<CatNo, IEnumerable<KeyTypeCollector>> Collectors(CatNo item) => 
-            new (item, item switch {
+    internal static partial class CategoryNoExtensions
+    {
+        static Tuple<CatNo, IEnumerable<KeyTypeCollector>> Collectors(CatNo item) =>
+            new(item, item switch
+            {
                 CatNo.ao_arm => [
                     new Text(Ktype.Kind, "0"),
                     new Text(Ktype.Possess, "1"),
@@ -103,7 +105,7 @@ namespace SardineTail
                     new Text(Ktype.Kind, "0"),
                     new Text(Ktype.Possess, "1"),
                     new Name(),
-                    new Text(Ktype.MainManifest, "abdata_01"),
+                    new Text(Ktype.MainManifest, "abdata"),
                     new Text(Ktype.MainAB, Plugin.AssetBundle),
                     new Asset(Ktype.MainData),
                     new Text(Ktype.Parent, "a_n_kokan"),
@@ -285,9 +287,9 @@ namespace SardineTail
                     new Text(Ktype.OverBotMaskAB, Plugin.AssetBundle),
                     new Image(Ktype.OverBotMask, "0"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -322,9 +324,9 @@ namespace SardineTail
                     new Text(Ktype.OverBotMaskAB, Plugin.AssetBundle),
                     new Image(Ktype.OverBotMask, "0"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -352,9 +354,9 @@ namespace SardineTail
                     new Text(Ktype.NailHide, "1"),
                     new Text(Ktype.Sex, "3"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -371,15 +373,15 @@ namespace SardineTail
                     new Text(Ktype.Kind, "0"),
                     new Text(Ktype.Possess, "1"),
                     new Name(),
-                    new Text(Ktype.MainManifest, "abdata005_00"),
+                    new Text(Ktype.MainManifest, "abdata"),
                     new Text(Ktype.MainAB, Plugin.AssetBundle),
                     new Asset(Ktype.MainData),
                     new Text(Ktype.StateType, "1"),
                     new Text(Ktype.Sex, "3"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -404,9 +406,9 @@ namespace SardineTail
                     new Text(Ktype.ShoesType, "1"),
                     new Text(Ktype.Sex, "1"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -433,9 +435,9 @@ namespace SardineTail
                     new Text(Ktype.OverBotMaskAB, Plugin.AssetBundle),
                     new Image(Ktype.OverBotMask, "0"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -461,9 +463,9 @@ namespace SardineTail
                     new Text(Ktype.SocksDent, "0"),
                     new Text(Ktype.Sex, "3"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -495,9 +497,9 @@ namespace SardineTail
                     new Text(Ktype.OverBotMaskAB, Plugin.AssetBundle),
                     new Image(Ktype.OverBotMask, "0"),
                     new Text(Ktype.MainTexAB, Plugin.AssetBundle),
-                    new Image(Ktype.MainTex),
+                    new Image(Ktype.MainTex, "0"),
                     new Text(Ktype.ColorMaskAB, Plugin.AssetBundle),
-                    new Image(Ktype.ColorMaskTex),
+                    new Image(Ktype.ColorMaskTex, "0"),
                     new Text(Ktype.MainTex02AB, Plugin.AssetBundle),
                     new Image(Ktype.MainTex02, "0"),
                     new Text(Ktype.ColorMask02AB, Plugin.AssetBundle),
@@ -863,4 +865,3 @@ namespace SardineTail
             });
     }
 }
- 
