@@ -67,11 +67,10 @@ namespace SardineTail
     internal static partial class CategoryNoExtensions
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => -new System.Random().Next());
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => - new System.Random().Next(100));
         static readonly Dictionary<CatNo, IEnumerable<KeyTypeCollector>> Cache =
             Enum.GetValues<CatNo>().Select(Collectors)
                 .Where(tuple => tuple.Item2.Count() > 0)
-                .Where(tuple => ModPackageExtensions.HardMigrations.TryAdd(tuple.Item1, new ()))
                 .ToDictionary(item => item.Item1, item => item.Item2);
         static int AssignId(this CatNo categoryNo) => --Identities[categoryNo];
        internal static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) =>
@@ -183,6 +182,14 @@ namespace SardineTail
             PkgVersion = PkgVersion,
             ModId = modId.With(() => ModToId.Add(modId, id))
         };
+        internal void LoadHardMigration(Dictionary<CatNo, Dictionary<int, Dictionary<HardMigrationInfo, string>>> info) =>
+            info.Do(entry => entry.Value.Do(subentry => 
+                ModPackageExtensions.Register(entry.Key, subentry.Key, new ModInfo() 
+                {
+                    PkgId = PkgId,
+                    PkgVersion = Version.Parse(subentry.Value[HardMigrationInfo.Version]),
+                    ModId = subentry.Value[HardMigrationInfo.ModId],
+                })));
 
         internal int ToId(ModInfo info, int id) => ModToId.GetValueOrDefault(SoftMigration(info), id);
         internal readonly Dictionary<string, AssetBundle> Cache = new();
@@ -216,15 +223,8 @@ namespace SardineTail
         internal override Texture2D LoadTexture(string path) =>
             File.Exists(Path.Combine(PkgPath, path)) ? ToTexture(File.ReadAllBytes(Path.Combine(PkgPath, path))) : null;
         void LoadHardMigration(string path) =>
-            File.Exists(path).Maybe(() => JsonSerializer
-                .Deserialize<Dictionary<CatNo, Dictionary<int, Dictionary<HardMigrationInfo, string>>>>(File.ReadAllText(path))
-                .Do(entry => ModPackageExtensions.HardMigrations.TryGetValue(entry.Key, out var mods).Maybe(() =>
-                    entry.Value.Do(subentry => mods.TryAdd(subentry.Key, new ModInfo()
-                    {
-                        PkgId = PkgId,
-                        PkgVersion = Version.Parse(subentry.Value[HardMigrationInfo.Version]),
-                        ModId = subentry.Value[HardMigrationInfo.ModId],
-                    })))));
+            File.Exists(path).Maybe(() => LoadHardMigration(JsonSerializer
+                .Deserialize<Dictionary<CatNo, Dictionary<int, Dictionary<HardMigrationInfo, string>>>>(File.ReadAllText(path))));
         void LoadSoftMigration(string path) =>
             File.Exists(path).Maybe(() => SoftMigrations =
                 JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(path))
@@ -251,15 +251,8 @@ namespace SardineTail
         byte[] ToBytes(ZipArchiveEntry entry) =>
             new BinaryReader(entry.Open()).ReadBytes((int)entry.Length);
         void LoadHardMigration(ZipArchiveEntry entry) =>
-            (entry != null).Maybe(() => JsonSerializer
-                .Deserialize<Dictionary<CatNo, Dictionary<int, Dictionary<HardMigrationInfo, string>>>>(entry.Open())
-                .Do(entry => ModPackageExtensions.HardMigrations.TryGetValue(entry.Key, out var mods).Maybe(() =>
-                    entry.Value.Do(subentry => mods.TryAdd(subentry.Key, new ModInfo()
-                    {
-                        PkgId = PkgId,
-                        PkgVersion = Version.Parse(subentry.Value[HardMigrationInfo.Version]),
-                        ModId = subentry.Value[HardMigrationInfo.ModId],
-                    })))));
+            (entry != null).Maybe(() => LoadHardMigration(JsonSerializer
+                .Deserialize<Dictionary<CatNo, Dictionary<int, Dictionary<HardMigrationInfo, string>>>>(entry.Open())));
         void LoadSoftMigration(ZipArchiveEntry entry) =>
             (entry != null).Maybe(() => SoftMigrations =
                 JsonSerializer.Deserialize<Dictionary<Version, Dictionary<string, string>>>(entry.Open()));
@@ -280,7 +273,8 @@ namespace SardineTail
         internal static ModInfo ToModInfo(this HumanDataAccessory.PartsInfo value, int id) =>
             ((CatNo)value.type).ToModInfo(id);
         internal static ModInfo ToModInfo(this CatNo categoryNo, int id) =>
-            id < 0 ? IdToMod[categoryNo].GetValueOrDefault(id) : null;
+            id < 0 ? IdToMod[categoryNo].GetValueOrDefault(id) :
+                HardMigrations.TryGetValue(categoryNo, out var mods) ? mods.GetValueOrDefault(id) : null;
         static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod = new();
         static void RegisterIdToMod(CatNo categoryNo, int id, ModInfo mod) =>
             (IdToMod[categoryNo] = IdToMod.TryGetValue(categoryNo, out var mods) ? mods : new()).Add(id, mod);
@@ -311,10 +305,11 @@ namespace SardineTail
             ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
         static Dictionary<string, ModPackage> Packages;
         internal static Dictionary<CatNo, Dictionary<int, ModInfo>> HardMigrations = new();
+        internal static void Register(CatNo categoryNo, int id, ModInfo info) =>
+            (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
         internal static int ToId(this ModInfo info, CatNo categoryNo, int id) =>
             HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod)
                 ? Packages[mod.PkgId].ToId(mod, id) : info != null ? Packages[info.PkgId].ToId(info, id) : id;
-                
         internal static void Initialize() =>
             ArchivePackages(Plugin.PackagePath).Concat(DirectoryPackages).GroupBy(item => item.PkgId)
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())

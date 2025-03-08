@@ -105,6 +105,9 @@ namespace SardineTail
                         {
                             ABKeys(catNo).Select(info.GetString).Do(path => originalAB.Add(path));
                         }
+                        foreach(var (key, val) in info.table) {
+                            Plugin.Instance.Log.LogDebug($"{info.Id}:{key}:{val}");
+                        }
                     }
                 }
             }
@@ -165,16 +168,14 @@ namespace SardineTail
                 .Where(item => !GroupKeys.Contains(item.KeyType))
                 .Where(item => info.ContainsKey(item.KeyType))
                 .Where(item => item is not Name && item is not Image && item is not Asset && item.KeyType != Ktype.MainManifest)
-                .Where(item => !info.GetString(item.KeyType)?.Equals(item.Default.Select(def => def.Item2).FirstOrDefault()) ?? false)
                 .SelectMany(item => originalAB.ConvertToValues(info, item.KeyType, Assets(catNo, item.KeyType)))
                 .ToDictionary(item => item.Item1, item => item.Item2);
         static IEnumerable<Tuple<Ktype, string>> ConvertToValues(this HashSet<string> originalAB, ListInfoBase info, Ktype key, IEnumerable<Ktype> subkeys) =>
-            subkeys.Count() == 0 ? [new(key, info.GetString(key))] : (info.GetString(key)?.Equals("0") ?? true) ? [] : originalAB.Contains(info.GetString(key)) ?
+            subkeys.Count() == 0 ? [new(key, info.GetString(key))] : info.GetString(key).Equals("0") ? [] : originalAB.Contains(info.GetString(key)) ?
                 subkeys.Where(info.ContainsKey).Select(item => new Tuple<Ktype, string>(item, $":{info.GetString(item)}")).Concat([new(key, info.GetString(key))]) :
                 subkeys.Where(info.ContainsKey).Where(item => !info.GetString(item)?.Equals("0") ?? false)
                     .Select(item => new Tuple<Ktype, string>(item, info.GetString(key).ToAssetPath(info.GetString(item))));
-        static string ToAssetPath(this string bundle, string asset) => 
-            string.Join(':', [TranslatePath(bundle), asset]);
+        static string ToAssetPath(this string bundle, string asset) => string.Join(':', [TranslatePath(bundle), asset]);
         static string TranslatePath(string path) =>
             string.Join(Path.AltDirectorySeparatorChar, path.Split(Path.DirectorySeparatorChar));
     }

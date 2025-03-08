@@ -212,7 +212,7 @@ namespace SardineTail
         static void Apply(this ModInfo mod, HumanDataHair data) =>
             data.glossId = mod.ToId(CatNo.mt_hairgloss, data.glossId);
         static void Apply(this Dictionary<ChaFileDefine.HairKind, ModInfo> mods, HumanDataHair data) =>
-             mods.Do(entry => entry.Value.Apply(entry.Key.ToCategoryNo(), data.parts[(int)entry.Key]));
+            mods?.Do(entry => entry.Value.Apply(entry.Key.ToCategoryNo(), data.parts[(int)entry.Key]));
         static void Apply(this HairsMods mods, HumanDataCoordinate data) =>
             data.Hair.With(mods.Hairs.Apply).With(mods.HairGloss.Apply);
         static void Apply(this ModInfo mod, CatNo catNo, HumanDataPaintInfo data) =>
@@ -226,7 +226,7 @@ namespace SardineTail
         static void ApplyPattern(this Dictionary<int, ModInfo> mods, HumanDataClothes.PartsInfo data) =>
             mods?.Do(entry => entry.Value.Apply(data.colorInfo[entry.Key].patternInfo));
         static void Apply(this ClothMods mods, CatNo catNo, HumanDataClothes.PartsInfo data) =>
-            mods.Part.Apply(catNo, data.With(mods.Paints.ApplyPaint).With(mods.Patterns.ApplyPattern));
+            mods?.Part.Apply(catNo, data.With(mods.Paints.ApplyPaint).With(mods.Patterns.ApplyPattern));
         static void Apply(this Dictionary<ChaFileDefine.ClothesKind, ClothMods> mods, HumanDataCoordinate data) =>
             mods?.Do(entry => entry.Value.Apply(entry.Key.ToCategoryNo(), data.Clothes.parts[(int)entry.Key]));
         static void Apply(this ModInfo mod, HumanDataAccessory.PartsInfo data) =>
