@@ -195,8 +195,8 @@ namespace SardineTail
         internal readonly Dictionary<string, AssetBundle> Cache = new();
         internal void Unload() =>
             Cache.With(cache => cache.Values.Do(item => item.Unload(true))).Clear();
-        internal UnityEngine.Object GetAsset(string bundle, string asset) =>
-            GetAssetBundle(bundle).LoadAsset(asset);
+        internal UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
+            GetAssetBundle(bundle).LoadAsset(asset, type);
         internal Texture2D GetTexture(string path) =>
             LoadTexture(path)?.With(WrapMode(Path.GetFileNameWithoutExtension(path)));
         internal Texture2D ToTexture(byte[] bytes) =>
@@ -315,11 +315,11 @@ namespace SardineTail
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
                 .With(packages => Packages = packages)
                 .Values.Do(item => item.Initialize());
-        internal static UnityEngine.Object ToAsset(this string[] items) =>
+        internal static UnityEngine.Object ToAsset(this Il2CppSystem.Type type, string[] items) =>
             items.Length switch
             {
                 2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
-                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
+                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2], type),
                 _ => null
             };
     }
@@ -327,8 +327,8 @@ namespace SardineTail
     {
         [HarmonyPostfix]
         [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string), typeof(Il2CppSystem.Type))]
-        static void LoadAssetPostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
-            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
+        static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
+            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : type.ToAsset(name.Split(':')) ?? __result;
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
@@ -338,7 +338,7 @@ namespace SardineTail
         public const string Process = "SamabakeScramble";
         public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
-        public const string Version = "0.5.0";
+        public const string Version = "0.8.0";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static readonly string PackagePath = Path.Combine(Paths.GameRootPath, "sardines");
         internal static readonly string DevelopmentPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "packages");
