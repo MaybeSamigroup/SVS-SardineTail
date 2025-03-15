@@ -19,6 +19,7 @@ namespace SardineTail
     {
         public string PkgId { get; set; }
         public string ModId { get; set; }
+        public CatNo Category { get; set; }
         public Version PkgVersion { get; set; }
     }
     public class HairsMods
@@ -96,117 +97,121 @@ namespace SardineTail
     }
     internal static class ModificationExtensions
     {
-        internal static int ToCategory(this ModInfo info, int original) =>
-            info != null ? (int)Enum.Parse<CatNo>(info.ModId.Split(Path.AltDirectorySeparatorChar)[0]) : original;
-
-        static HairsMods ToMods(this HumanDataHair value) =>
+        static HairsMods ToMods(this HumanDataHair value, Func<CatNo, int, ModInfo> translate) =>
             new HairsMods()
             {
-                HairGloss = CatNo.mt_hairgloss.ToModInfo(value.glossId),
+                HairGloss = translate(CatNo.mt_hairgloss, value.glossId),
                 Hairs = Enum.GetValues<ChaFileDefine.HairKind>()
-                    .Where(index => null != index.ToModInfo(value.parts[(int)index].id))
-                    .ToDictionary(index => index, index => index.ToModInfo(value.parts[(int)index].id))
+                    .Select(index => new Tuple<ChaFileDefine.HairKind, ModInfo>(index, translate(index.ToCategoryNo(), value.parts[(int)index].id)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        static ClothMods ToMods(this ChaFileDefine.ClothesKind id, HumanDataClothes.PartsInfo value) =>
+        static ClothMods ToMods(this ChaFileDefine.ClothesKind id, HumanDataClothes.PartsInfo value, Func<CatNo, int, ModInfo> translate) =>
             new ClothMods()
             {
-                Part = id.ToModInfo(value.id),
+                Part = translate(id.ToCategoryNo(), value.id),
                 Paints = Enumerable.Range(0, value.paintInfos.Count)
-                    .Where(index => null != CatNo.mt_body_paint.ToModInfo(value.paintInfos[index].ID))
-                    .ToDictionary(index => index, index => CatNo.mt_body_paint.ToModInfo(value.paintInfos[index].ID)),
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_body_paint, value.paintInfos[index].ID)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2),
                 Patterns = Enumerable.Range(0, value.colorInfo.Count)
-                    .Where(index => null != CatNo.mt_pattern.ToModInfo(value.colorInfo[index].patternInfo.pattern))
-                    .ToDictionary(index => index, index => CatNo.mt_pattern.ToModInfo(value.colorInfo[index].patternInfo.pattern))
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_pattern, value.colorInfo[index].patternInfo.pattern)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        static Dictionary<ChaFileDefine.ClothesKind, ClothMods> ToMods(this HumanDataClothes value) =>
+        static Dictionary<ChaFileDefine.ClothesKind, ClothMods> ToMods(this HumanDataClothes value, Func<CatNo, int, ModInfo> translate) =>
             Enum.GetValues<ChaFileDefine.ClothesKind>()
-                .ToDictionary(index => index, index => index.ToMods(value.parts[(int)index]));
-        static AccessoryMods ToMods(this HumanDataAccessory.PartsInfo value) =>
+                .ToDictionary(index => index, index => index.ToMods(value.parts[(int)index], translate));
+        static AccessoryMods ToMods(this HumanDataAccessory.PartsInfo value, Func<CatNo, int, ModInfo> translate) =>
             new AccessoryMods()
             {
-                Part = value.ToModInfo(value.id),
+                Part = translate((CatNo) value.type, value.id),
                 Patterns = Enumerable.Range(0, value.colorInfo.Count)
-                    .Where(index => null != CatNo.mt_pattern.ToModInfo(value.colorInfo[index].pattern))
-                    .ToDictionary(index => index, index => CatNo.mt_pattern.ToModInfo(value.colorInfo[index].pattern))
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_pattern, value.colorInfo[index].pattern)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        static Dictionary<int, AccessoryMods> ToMods(this HumanDataAccessory value) =>
-            Enumerable.Range(0, value.parts.Count)
-                .ToDictionary(index => index, index => value.parts[index].ToMods());
-        static BodyMakeupMods ToMods(this HumanDataBodyMakeup value) =>
+        static Dictionary<int, AccessoryMods> ToMods(this HumanDataAccessory value, Func<CatNo, int, ModInfo> translate) =>
+            Enumerable.Range(0, value.parts.Count).ToDictionary(index => index, index => value.parts[index].ToMods(translate));
+        static BodyMakeupMods ToMods(this HumanDataBodyMakeup value, Func<CatNo, int, ModInfo> translate) =>
             new BodyMakeupMods()
             {
-                Nail = CatNo.bo_nail.ToModInfo(value.nailInfo.ID),
-                NailLeg = CatNo.bo_nail_leg.ToModInfo(value.nailLegInfo.ID),
+                Nail = translate(CatNo.bo_nail, value.nailInfo.ID),
+                NailLeg = translate(CatNo.bo_nail_leg, value.nailLegInfo.ID),
                 Paints = Enumerable.Range(0, value.paintInfos.Count)
-                    .Where(index => null != CatNo.mt_body_paint.ToModInfo(value.paintInfos[index].ID))
-                    .ToDictionary(index => index, index => CatNo.mt_body_paint.ToModInfo(value.paintInfos[index].ID)),
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_body_paint, value.paintInfos[index].ID)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2),
                 Layouts = Enumerable.Range(0, value.paintInfos.Count)
-                    .Where(index => null != CatNo.bodypaint_layout.ToModInfo(value.paintInfos[index].layoutID))
-                    .ToDictionary(index => index, index => CatNo.bodypaint_layout.ToModInfo(value.paintInfos[index].layoutID)),
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.bodypaint_layout, value.paintInfos[index].layoutID)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        static FaceMakeupMods ToMods(this HumanDataFaceMakeup value) =>
+        static FaceMakeupMods ToMods(this HumanDataFaceMakeup value, Func<CatNo, int, ModInfo> translate) =>
             new FaceMakeupMods()
             {
-                Eyeshadow = CatNo.mt_eyeshadow.ToModInfo(value.eyeshadowId),
-                Cheek = CatNo.mt_cheek.ToModInfo(value.cheekId),
-                Lip = CatNo.mt_lip.ToModInfo(value.lipId),
+                Eyeshadow = translate(CatNo.mt_eyeshadow, value.eyeshadowId),
+                Cheek = translate(CatNo.mt_cheek, value.cheekId),
+                Lip = translate(CatNo.mt_lip, value.lipId),
                 Paints = Enumerable.Range(0, value.paintInfos.Count)
-                    .Where(index => null != CatNo.mt_face_paint.ToModInfo(value.paintInfos[index].ID))
-                    .ToDictionary(index => index, index => CatNo.mt_face_paint.ToModInfo(value.paintInfos[index].ID)),
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_face_paint, value.paintInfos[index].ID)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2),
                 Layouts = Enumerable.Range(0, value.paintInfos.Count)
-                    .Where(index => null != CatNo.facepaint_layout.ToModInfo(value.paintInfos[index].layoutID))
-                    .ToDictionary(index => index, index => CatNo.facepaint_layout.ToModInfo(value.paintInfos[index].layoutID)),
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.facepaint_layout, value.paintInfos[index].layoutID)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        internal static CoordinateMods ToMods(this HumanDataCoordinate value) =>
+        static CoordinateMods ToMods(this HumanDataCoordinate value, Func<CatNo, int, ModInfo> translate) =>
             new CoordinateMods()
             {
-                Hairs = value.Hair.ToMods(),
-                Clothes = value.Clothes.ToMods(),
-                Accessories = value.Accessory.ToMods(),
-                FaceMakeup = value.FaceMakeup.ToMods(),
-                BodyMakeup = value.BodyMakeup.ToMods(),
+                Hairs = value.Hair.ToMods(translate),
+                Clothes = value.Clothes.ToMods(translate),
+                Accessories = value.Accessory.ToMods(translate),
+                FaceMakeup = value.FaceMakeup.ToMods(translate),
+                BodyMakeup = value.BodyMakeup.ToMods(translate),
             };
-        static EyeMods ToMods(this HumanDataFace.PupilInfo value) =>
+        static EyeMods ToMods(this HumanDataFace.PupilInfo value, Func<CatNo, int, ModInfo> translate) =>
             new EyeMods()
             {
-                Eye = CatNo.mt_eye.ToModInfo(value.id),
-                Gradation = CatNo.mt_eye_gradation.ToModInfo(value.gradMaskId),
+                Eye = translate(CatNo.mt_eye, value.id),
+                Gradation = translate(CatNo.mt_eye_gradation, value.gradMaskId),
                 Highlights = Enumerable.Range(0, value.highlightInfos.Count)
-                    .Where(index => null != CatNo.mt_eye_hi_up.ToModInfo(value.highlightInfos[index].id))
-                    .ToDictionary(index => index, index => CatNo.mt_eye_hi_up.ToModInfo(value.highlightInfos[index].id))
+                    .Select(index => new Tuple<int, ModInfo>(index, translate(CatNo.mt_eye_hi_up, value.highlightInfos[index].id)))
+                    .Where(tuple => tuple.Item2 != null).ToDictionary(tuple => tuple.Item1, pair => pair.Item2)
             };
-        static FaceMods ToMods(this HumanDataFace value) =>
+        static FaceMods ToMods(this HumanDataFace value, Func<CatNo, int, ModInfo> translate) =>
             new FaceMods()
             {
-                Head = CatNo.bo_head.ToModInfo(value.headId),
-                Detail = CatNo.mt_face_detail.ToModInfo(value.detailId),
-                Mole = CatNo.mt_mole.ToModInfo(value.moleInfo.ID),
-                MoleLayout = CatNo.mole_layout.ToModInfo(value.moleInfo.layoutID),
-                Nose = CatNo.mt_nose.ToModInfo(value.noseId),
-                LipLine = CatNo.mt_lipline.ToModInfo(value.lipLineId),
-                Eyebrows = CatNo.mt_eyebrow.ToModInfo(value.eyebrowId),
-                Eyelid = CatNo.mt_eyelid.ToModInfo(value.eyelidId),
-                EyelineDown = CatNo.mt_eyeline_down.ToModInfo(value.eyelineDownId),
-                EyelineUp = CatNo.mt_eyeline_up.ToModInfo(value.eyelineUpId),
+                Head = translate(CatNo.bo_head, value.headId),
+                Detail = translate(CatNo.mt_face_detail, value.detailId),
+                Mole = translate(CatNo.mt_mole, value.moleInfo.ID),
+                MoleLayout = translate(CatNo.mole_layout, value.moleInfo.layoutID),
+                Nose = translate(CatNo.mt_nose, value.noseId),
+                LipLine = translate(CatNo.mt_lipline, value.lipLineId),
+                Eyebrows = translate(CatNo.mt_eyebrow, value.eyebrowId),
+                Eyelid = translate(CatNo.mt_eyelid, value.eyelidId),
+                EyelineDown = translate(CatNo.mt_eyeline_down, value.eyelineDownId),
+                EyelineUp = translate(CatNo.mt_eyeline_up, value.eyelineUpId),
                 Eyes = Enumerable.Range(0, value.pupil.Count)
-                    .ToDictionary(index => index, index => value.pupil[index].ToMods())
+                    .ToDictionary(index => index, index => value.pupil[index].ToMods(translate))
             };
-        static BodyMods ToMods(this HumanDataBody value) =>
+        static BodyMods ToMods(this HumanDataBody value, Func<CatNo, int, ModInfo> translate) =>
             new BodyMods()
             {
-                Detail = CatNo.mt_body_detail.ToModInfo(value.detailId),
-                Sunburn = CatNo.mt_sunburn.ToModInfo(value.sunburnId),
-                Nip = CatNo.mt_nip.ToModInfo(value.nipId),
-                Underhair = CatNo.mt_underhair.ToModInfo(value.underhairId)
+                Detail = translate(CatNo.mt_body_detail, value.detailId),
+                Sunburn = translate(CatNo.mt_sunburn, value.sunburnId),
+                Nip = translate(CatNo.mt_nip, value.nipId),
+                Underhair = translate(CatNo.mt_underhair, value.underhairId)
             };
-        internal static CharacterMods ToMods(this HumanData value) =>
+        static CharacterMods ToMods(this HumanData value, Func<CatNo, int, ModInfo> translate) =>
             new CharacterMods()
             {
-                Face = value.Custom.Face.ToMods(),
-                Body = value.Custom.Body.ToMods(),
+                Face = value.Custom.Face.ToMods(translate),
+                Body = value.Custom.Body.ToMods(translate),
                 Coordinates = Enum.GetValues<ChaFileDefine.CoordinateType>()
-                    .ToDictionary(index => index, index => value.Coordinates[(int)index].ToMods())
+                    .ToDictionary(index => index, index => value.Coordinates[(int)index].ToMods(translate))
             };
+        internal static CoordinateMods TranslateSoftMods(this HumanDataCoordinate value) =>
+            value.ToMods(ModPackageExtensions.TranslateSoftMods);
+        internal static CharacterMods TranslateSoftMods(this HumanData value) =>
+            value.ToMods(ModPackageExtensions.TranslateSoftMods);
+        internal static CoordinateMods TranslateHardMods(this HumanDataCoordinate value) =>
+            value.ToMods(ModPackageExtensions.TranslateHardMods);
+        internal static CharacterMods TranslateHardMods(this HumanData value) =>
+            value.ToMods(ModPackageExtensions.TranslateHardMods);
         static void Apply(this ModInfo mod, CatNo catNo, HumanDataHair.PartsInfo data) =>
             data.id = mod.ToId(catNo, data.id);
         static void Apply(this ModInfo mod, HumanDataHair data) =>
@@ -230,7 +235,7 @@ namespace SardineTail
         static void Apply(this Dictionary<ChaFileDefine.ClothesKind, ClothMods> mods, HumanDataCoordinate data) =>
             mods?.Do(entry => entry.Value.Apply(entry.Key.ToCategoryNo(), data.Clothes.parts[(int)entry.Key]));
         static void Apply(this ModInfo mod, HumanDataAccessory.PartsInfo data) =>
-            (data.id, data.type) = (mod.ToId((CatNo)data.type, data.id), mod.ToCategory(data.type));
+            (data.id, data.type) = (mod.ToId((CatNo)data.type, data.id), mod != null ? (int) mod.Category : data.type);
         static void Apply(this ModInfo mod, HumanDataAccessory.PartsInfo.ColorInfo data) =>
             data.pattern = mod.ToId(CatNo.mt_pattern, data.pattern);
         static void Apply(this Dictionary<int, ModInfo> mods, HumanDataAccessory.PartsInfo data) =>
@@ -333,18 +338,19 @@ namespace SardineTail
             data.With(mods.Coordinates.Apply).With(mods.Body.Apply).With(mods.Face.Apply);
         static readonly string ModificationPath = Path.Combine(Plugin.Guid, "modification.json");
         static void Serialize(ZipArchive archive) =>
-            HumanCustom.Instance.Human.data.ToMods().Serialize(archive);
+            HumanCustom.Instance.Human.data.TranslateSoftMods().Serialize(archive);
         static void SerializeCoordinate(ZipArchive archive) =>
-            HumanCustom.Instance.Human.data.Coordinates[HumanCustom.Instance.Human.data.Status.coordinateType].ToMods().Serialize(archive);
+            HumanCustom.Instance.Human.data.Coordinates
+                [HumanCustom.Instance.Human.data.Status.coordinateType].TranslateSoftMods().Serialize(archive);
         static void Deserialize(HumanData data, CharaLimit limits, ZipArchive archive) =>
-            archive.Deserialize(data.ToMods, limits.Merge(data));
+            archive.Deserialize(data.TranslateHardMods, limits.Merge(data));
         static void Deserialize(Human human, HumanDataCoordinate coord, CoordLimit limits, ZipArchive archive) =>
-            archive.Deserialize(coord.ToMods, limits.Merge(coord));
+            archive.Deserialize(coord.TranslateHardMods, limits.Merge(coord));
         static void Serialize(int index, ZipArchive archive) =>
-            Manager.Game.saveData.Charas[index].charFile.ToMods().Serialize(archive);
+            Manager.Game.saveData.Charas[index].charFile.TranslateSoftMods().Serialize(archive);
         static void Deserialize(int index, ZipArchive archive) =>
             archive.Deserialize(
-                Manager.Game.saveData.Charas[index].charFile.ToMods,
+                Manager.Game.saveData.Charas[index].charFile.TranslateHardMods,
                 CharaLimit.All.Merge(Manager.Game.saveData.Charas[index].charFile));
         static void Serialize(this CharacterMods mods, ZipArchive archive) =>
             new StreamWriter(archive.CreateEntry(ModificationPath).Open())
