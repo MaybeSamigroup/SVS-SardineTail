@@ -75,15 +75,20 @@ namespace SardineTail
                     .With(path => entry.Children
                         .Where(child => !values[child].IsNullOrEmpty() && !values[child].Equals("0"))
                         .Do(child => values[child] = $"{pkgId}:{path}:{values[child]}"))),
+                Plugin.AssetBundle => Plugin.AssetBundle
+                    .With(() => entry.Children
+                        .Where(child => pkgId.AssetBundleExists(values[child]))
+                        .Do(child => values[child] = $"{pkgId}:{values[child]}")),
                 var path when pkgId.AssetBundleExists(path) => Plugin.AssetBundle
                     .With(() => entry.Children.Do(child => values[child] = $"{pkgId}:{path}:{values[child]}")),
                 var path => path
             };
-        static Mods Collect(this Entry entry, string pkgId, IEnumerable<string> paths, string name) =>
+        static Mods Collect(this Entry entry, IEnumerable<string> paths, string name) =>
             entry.Value switch
             {
-                Vtype.Image => name.Equals(entry.Index.ToString(), StringComparison.OrdinalIgnoreCase)
-                    ? [new(entry.Index, $"{pkgId}:{string.Join(Path.AltDirectorySeparatorChar, paths, name)}")] : [],
+                Vtype.Image => Path.GetFileNameWithoutExtension(name)
+                    .Equals(entry.Index.ToString(), StringComparison.OrdinalIgnoreCase)
+                    ? [new(entry.Index, string.Join(Path.AltDirectorySeparatorChar, [..paths, name]))] : [],
                 _ => []
             };
         static Mods Collect(this Entry entry, Values values) =>
@@ -92,8 +97,8 @@ namespace SardineTail
                 Vtype.Name => [],
                 _ => values.TryGetValue(entry.Index, out var value) ? [new(entry.Index, value)] : []
             };
-        internal static Mods Collect(this Category category, string pkgId, IEnumerable<string> paths, string name) =>
-            category.Entries.SelectMany(entry => entry.Collect(pkgId, paths, name));
+        internal static Mods Collect(this Category category, IEnumerable<string> paths, string name) =>
+            category.Entries.SelectMany(entry => entry.Collect(paths, name));
         internal static Mods Collect(this Category category, Values values) =>
             category.Entries.SelectMany(entry => entry.Collect(values));
         static IEnumerable<PkgEntry> EnumerateImages(this DirectoryInfo info) =>
@@ -169,10 +174,10 @@ namespace SardineTail
     internal class DirectoryCollector : CategoryCollector<IEnumerable<PkgEntry>>
     {
         internal DirectoryCollector(Category category, string pkgId) : base(category, pkgId) { }
-        Mods Process(PkgEntry entry) =>
-            "values.json".Equals(entry.Item2.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.Item2.OpenRead()))
-                : Index.Collect(PkgId, entry.Item1, entry.Item2.Name);
+        Mods Process(IEnumerable<string> paths, FileInfo entry) =>
+            "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
+                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.OpenRead()))
+                : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<PkgEntry> entries) =>
              Index.Resolve(PkgId, paths, mods) switch
              {
@@ -183,16 +188,16 @@ namespace SardineTail
              };
         internal override IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, IEnumerable<PkgEntry> entries) =>
             Verify(paths, entries.Where(entry => entry.Item1.Length == 1)
-                .SelectMany(Process).Concat(mods).DistinctBy(item => item.Item1),
+                .SelectMany(entry => Process(paths, entry.Item2)).Concat(mods).DistinctBy(item => item.Item1),
                     entries.Where(entry => entry.Item1.Length > 1));
     }
     internal class ArchiveCollector : CategoryCollector<IEnumerable<ZipEntry>>
     {
         internal ArchiveCollector(Category index, string pkgId) : base(index, pkgId) { }
-        Mods Process(ZipEntry entry) =>
-            "values.json".Equals(entry.Item2.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.Item2.Open()))
-                : Index.Collect(PkgId, entry.Item1, entry.Item2.Name);
+        Mods Process(IEnumerable<string> paths, ZipArchiveEntry entry) =>
+            "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
+                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.Open()))
+                : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<ZipEntry> entries) =>
            Index.Resolve(PkgId, paths, mods) switch
            {
@@ -203,7 +208,7 @@ namespace SardineTail
            };
         internal override IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, IEnumerable<ZipEntry> entries) =>
              Verify(paths, entries.Where(entry => entry.Item1.Length == 1)
-                 .SelectMany(Process).Concat(mods).DistinctBy(item => item.Item1),
+                 .SelectMany(entry => Process(paths, entry.Item2)).Concat(mods).DistinctBy(item => item.Item1),
                      entries.Where(entry => entry.Item1.Length > 1));
     }
     public struct HardMigrationInfo
@@ -264,7 +269,7 @@ namespace SardineTail
         internal AssetBundle GetAssetBundle(string path) =>
             Cache.GetValueOrDefault(path) ?? (Cache[path] = LoadAssetBundle(path));
         internal abstract void Initialize();
-        internal abstract bool AssetBundleExists(string path);
+        internal abstract bool ResourceExists(string path);
         internal abstract AssetBundle LoadAssetBundle(string path);
         internal abstract Texture2D LoadTexture(string path);
     }
@@ -272,7 +277,7 @@ namespace SardineTail
     {
         string PkgPath;
         internal DirectoryPackage(string pkgId, Version version, string path) : base(pkgId, version) => PkgPath = path;
-        internal override bool AssetBundleExists(string path) =>
+        internal override bool ResourceExists(string path) =>
             File.Exists(Path.Combine(PkgPath, path));
         internal override AssetBundle LoadAssetBundle(string path) =>
             File.Exists(Path.Combine(PkgPath, path)) ? AssetBundle.LoadFromFile(Path.Combine(PkgPath, path)) : new AssetBundle();
@@ -304,7 +309,7 @@ namespace SardineTail
     {
         string ArchivePath;
         internal ArchivePackage(string pkgId, Version version, string path) : base(pkgId, version) => ArchivePath = path;
-        internal override bool AssetBundleExists(string path) =>
+        internal override bool ResourceExists(string path) =>
             ZipFile.OpenRead(ArchivePath).GetEntry(Path.Combine(path)) != null;
         internal override AssetBundle LoadAssetBundle(string path) =>
             LoadAssetBundle(ZipFile.OpenRead(ArchivePath).GetEntry(path));
@@ -339,7 +344,7 @@ namespace SardineTail
     internal static class ModPackageExtensions
     {
         internal static bool AssetBundleExists(this string pkgId, string path) =>
-            Packages[pkgId].AssetBundleExists(path);
+            Packages[pkgId].ResourceExists(path);
         internal static ModInfo TranslateSoftMods(this CatNo categoryNo, int id) =>
             IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
         internal static ModInfo TranslateHardMods(this CatNo categoryNo, int id) =>
