@@ -9,6 +9,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Unicode;
+using System.Text.Encodings.Web;
 using System.Collections.Generic;
 using Fishbone;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
@@ -77,9 +79,9 @@ namespace SardineTail
                         .Do(child => values[child] = $"{pkgId}:{path}:{values[child]}"))),
                 Plugin.AssetBundle => Plugin.AssetBundle
                     .With(() => entry.Children
-                        .Where(child => pkgId.AssetBundleExists(values[child]))
+                        .Where(child => pkgId.ResourceExists(values[child]))
                         .Do(child => values[child] = $"{pkgId}:{values[child]}")),
-                var path when pkgId.AssetBundleExists(path) => Plugin.AssetBundle
+                var path when pkgId.ResourceExists(path) => Plugin.AssetBundle
                     .With(() => entry.Children.Do(child => values[child] = $"{pkgId}:{path}:{values[child]}")),
                 var path => path
             };
@@ -88,7 +90,7 @@ namespace SardineTail
             {
                 Vtype.Image => Path.GetFileNameWithoutExtension(name)
                     .Equals(entry.Index.ToString(), StringComparison.OrdinalIgnoreCase)
-                    ? [new(entry.Index, string.Join(Path.AltDirectorySeparatorChar, [..paths, name]))] : [],
+                    ? [new(entry.Index, string.Join(Path.AltDirectorySeparatorChar, [.. paths, name]))] : [],
                 _ => []
             };
         static Mods Collect(this Entry entry, Values values) =>
@@ -112,12 +114,15 @@ namespace SardineTail
         internal static Dictionary<Category, IEnumerable<PkgEntry>> Categories(this string path) =>
             All.ToDictionary(category => category, category =>
                 new DirectoryInfo(Path.Combine(path, category.Index.ToString())).EnumerateEntries());
+        static bool ValuesOrImage(ZipArchiveEntry entry) =>
+           "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase) ||    
+           ".png".Equals(Path.GetExtension(entry.Name), StringComparison.OrdinalIgnoreCase);
         internal static Dictionary<Category, IEnumerable<ZipEntry>> Categories(this ZipArchive archive) =>
-            archive.Entries.Select(entry => new ZipEntry(entry.FullName.Split(Path.AltDirectorySeparatorChar), entry))
-                .GroupBy(entry => Enum.TryParse<CatNo>(entry.Item1[0], out var value)
-                    ? All.Where(category => category.Index == value).FirstOrDefault(NoCategory) : NoCategory)
-                    .Where(group => !group.Key.Equals(NoCategory))
-                    .ToDictionary(group => group.Key, group => group.Select(entry => new ZipEntry(entry.Item1[1..], entry.Item2)));
+            archive.Entries.Where(ValuesOrImage).Select(entry => new ZipEntry(entry.FullName.Split(Path.AltDirectorySeparatorChar), entry))
+                .GroupBy(entry => Enum.TryParse<CatNo>(entry.Item1[0], out var value) ? value : CatNo.mt_dummy)
+                .Where(group => All.Any(item => item.Index == group.Key))
+                .ToDictionary(group => All.First(category => category.Index == group.Key),
+                    group =>group.Select(entry => new ZipEntry(entry.Item1[1..], entry.Item2)));
         internal static IEnumerable<Resolution> LoadCsvValues(this Category category, string pkgId, string input) =>
             category.LoadCsvValues(pkgId, input.Split('\n'));
         static IEnumerable<Resolution> LoadCsvValues(this Category category, string pkgId, string[] lines) =>
@@ -168,43 +173,41 @@ namespace SardineTail
         internal Category Index;
         internal string PkgId;
         internal CategoryCollector(Category index, string pkgId) => (Index, PkgId) = (index, pkgId);
-        internal abstract IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, T entries);
-        internal IEnumerable<Resolution> Collect(T entries) => Collect([Index.Index.ToString()], [], entries);
+        internal abstract IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, IEnumerable<T> entries);
+        internal IEnumerable<Resolution> Collect(IEnumerable<T> entries) => Collect([Index.Index.ToString()], [], entries);
     }
-    internal class DirectoryCollector : CategoryCollector<IEnumerable<PkgEntry>>
+    internal class DirectoryCollector : CategoryCollector<PkgEntry>
     {
         internal DirectoryCollector(Category category, string pkgId) : base(category, pkgId) { }
         Mods Process(IEnumerable<string> paths, FileInfo entry) =>
             "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.OpenRead()))
+                ? Index.Collect(entry.OpenRead().TryWith(stream => stream.TryParse<Values>()))
                 : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<PkgEntry> entries) =>
-             Index.Resolve(PkgId, paths, mods) switch
-             {
-                 var item when item != null => [item],
-                 _ => entries.GroupBy(entry => entry.Item1[0]).Select(
-                     group => Collect(paths.Concat([group.Key]), mods, group
-                          .Select(entry => new PkgEntry(entry.Item1[1..], entry.Item2)))).SelectMany(items => items)
-             };
+           Index.Resolve(PkgId, paths, mods) switch
+           {
+               var item when item != null => [item],
+               _ => entries.GroupBy(entry => entry.Item1[0], (path, group) => Collect(paths.Concat([path]),
+                       mods, group.Select(entry => new PkgEntry(entry.Item1[1..], entry.Item2)))).SelectMany(items => items)
+           };
         internal override IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, IEnumerable<PkgEntry> entries) =>
             Verify(paths, entries.Where(entry => entry.Item1.Length == 1)
                 .SelectMany(entry => Process(paths, entry.Item2)).Concat(mods).DistinctBy(item => item.Item1),
                     entries.Where(entry => entry.Item1.Length > 1));
     }
-    internal class ArchiveCollector : CategoryCollector<IEnumerable<ZipEntry>>
+    internal class ArchiveCollector : CategoryCollector<ZipEntry>
     {
         internal ArchiveCollector(Category index, string pkgId) : base(index, pkgId) { }
         Mods Process(IEnumerable<string> paths, ZipArchiveEntry entry) =>
             "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(JsonSerializer.Deserialize<Values>(entry.Open()))
+                ? Index.Collect(entry.Open().TryWith(stream => stream.TryParse<Values>()))
                 : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<ZipEntry> entries) =>
            Index.Resolve(PkgId, paths, mods) switch
            {
                var item when item != null => [item],
-               _ => entries.GroupBy(entry => entry.Item1[0]).Select(
-                    group => Collect(paths.Concat([group.Key]), mods, group
-                       .Select(entry => new ZipEntry(entry.Item1[1..], entry.Item2)))).SelectMany(items => items)
+               _ => entries.GroupBy(entry => entry.Item1[0], (path, group) => Collect(paths.Concat([path]),
+                       mods, group.Select(entry => new ZipEntry(entry.Item1[1..], entry.Item2)))).SelectMany(items => items)
            };
         internal override IEnumerable<Resolution> Collect(IEnumerable<string> paths, Mods mods, IEnumerable<ZipEntry> entries) =>
              Verify(paths, entries.Where(entry => entry.Item1.Length == 1)
@@ -225,7 +228,7 @@ namespace SardineTail
         internal ModPackage(string pkgId, Version version) => (PkgId, PkgVersion) = (pkgId, version);
         internal Dictionary<Version, Dictionary<string, string>> SoftMigrations = new();
         string SoftMigration(ModInfo info) =>
-            SoftMigrations.Where(entry => entry.Key < info.PkgVersion).OrderBy(entry => entry.Key)
+            SoftMigrations.Where(entry => entry.Key > info.PkgVersion).OrderBy(entry => entry.Key)
                 .Aggregate(info.ModId, (modId, entry) => entry.Value.GetValueOrDefault(modId, modId));
         internal readonly Dictionary<string, int> ModToId = new();
         internal void Register(Category category, string modId, ListInfoBase info) =>
@@ -239,8 +242,7 @@ namespace SardineTail
                     Category = category.Index,
                 })
             );
-
-        internal void LoadHardMigration(Dictionary<CatNo, Dictionary<int, HardMigrationInfo>> info) =>
+        void LoadHardMigration(Dictionary<CatNo, Dictionary<int, HardMigrationInfo>> info) =>
             info.Do(entry => entry.Value.Do(subentry =>
                 ModPackageExtensions.Register(entry.Key, subentry.Key, new ModInfo()
                 {
@@ -249,23 +251,25 @@ namespace SardineTail
                     ModId = subentry.Value.ModId,
                     Category = entry.Key,
                 })));
-        internal int ToId(ModInfo info, int id) => ModToId.GetValueOrDefault(SoftMigration(info), id);
+        internal void LoadHardMigration(Stream stream) =>
+            LoadHardMigration(stream.TryParse<Dictionary<CatNo, Dictionary<int, HardMigrationInfo>>>());
+        internal void LoadSoftMigration(Stream stream) =>
+            SoftMigrations = stream.TryParse<Dictionary<string, Dictionary<string, string>>>()
+                .Where(item => Version.TryParse(item.Key, out var _))
+                .ToDictionary(item => Version.Parse(item.Key), item => item.Value);
+        void NotifyMissingModInfo(ModInfo info) =>
+            Plugin.Instance.Log.LogMessage($"mod info missing:{info.PkgId}:{info.ModId}:{info.PkgVersion}");
+        internal int ToId(ModInfo info, int oldId) =>
+            ModToId.TryGetValue(SoftMigration(info), out var newId) ? newId : oldId.With(() => NotifyMissingModInfo(info));
         internal readonly Dictionary<string, AssetBundle> Cache = new();
         internal void Unload() =>
             Cache.With(cache => cache.Values.Do(item => item.Unload(true))).Clear();
         internal UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
             GetAssetBundle(bundle).LoadAsset(asset, type);
         internal Texture2D GetTexture(string path) =>
-            LoadTexture(path)?.With(WrapMode(Path.GetFileNameWithoutExtension(path)));
+            LoadTexture(path)?.With(path.Split(Path.AltDirectorySeparatorChar).WrapMode);
         internal Texture2D ToTexture(byte[] bytes) =>
             new Texture2D(256, 256).With(t2d => ImageConversion.LoadImage(t2d, bytes));
-        Action<Texture2D> WrapMode(string path) =>
-            Path.GetFileNameWithoutExtension(path) switch
-            {
-                "MainTex" => _ => { }
-                ,
-                _ => t2d => t2d.With(t2d => t2d.wrapMode = t2d.wrapModeU = t2d.wrapModeV = t2d.wrapModeW = TextureWrapMode.Clamp)
-            };
         internal AssetBundle GetAssetBundle(string path) =>
             Cache.GetValueOrDefault(path) ?? (Cache[path] = LoadAssetBundle(path));
         internal abstract void Initialize();
@@ -283,14 +287,12 @@ namespace SardineTail
             File.Exists(Path.Combine(PkgPath, path)) ? AssetBundle.LoadFromFile(Path.Combine(PkgPath, path)) : new AssetBundle();
         internal override Texture2D LoadTexture(string path) =>
             File.Exists(Path.Combine(PkgPath, path)) ? ToTexture(File.ReadAllBytes(Path.Combine(PkgPath, path))) : null;
-        void LoadHardMigration(string path) =>
-            File.Exists(path).Maybe(() => LoadHardMigration(JsonSerializer
-                .Deserialize<Dictionary<CatNo, Dictionary<int, HardMigrationInfo>>>(File.ReadAllText(path))));
-        void LoadSoftMigration(string path) =>
-            File.Exists(path).Maybe(() => SoftMigrations =
-                JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(path))
-                    .Where(item => Version.TryParse(item.Key, out var _))
-                    .ToDictionary(item => Version.Parse(item.Key), item => item.Value));
+        void LoadHardMigration() =>
+            Path.Combine(PkgPath, HARD_MIGRATION).With(path =>
+                File.Exists(path).Maybe(() => File.OpenRead(path).TryWith(LoadHardMigration)));
+        void LoadSoftMigration() =>
+            Path.Combine(PkgPath, SOFT_MIGRATION).With(path =>
+                File.Exists(path).Maybe(() => File.OpenRead(path).TryWith(LoadSoftMigration)));
         void LoadCsvFile(Category category, string path) =>
             File.Exists(path).Maybe(() => category.LoadCsvValues(PkgId, File.ReadAllText(path))
                 .Do(value => Register(category, value.Item1, value.Item2)));
@@ -298,10 +300,7 @@ namespace SardineTail
             CategoryExtensions.All.Do(category =>
                 LoadCsvFile(category, Path.Combine(PkgPath, $"{category.Index}.csv")));
         internal override void Initialize() =>
-            PkgPath
-                .With(() => LoadSoftMigration(Path.Combine(PkgPath, SOFT_MIGRATION)))
-                .With(() => LoadHardMigration(Path.Combine(PkgPath, HARD_MIGRATION)))
-                .With(LoadCsvFiles)
+            PkgPath.With(LoadHardMigration).With(LoadSoftMigration).With(LoadCsvFiles)
                 .Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId)
                     .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2)));
     }
@@ -320,30 +319,52 @@ namespace SardineTail
         Texture2D LoadTexture(ZipArchiveEntry entry) =>
             entry != null ? ToTexture(ToBytes(entry)) : null;
         byte[] ToBytes(ZipArchiveEntry entry) =>
-            new BinaryReader(entry.Open()).ReadBytes((int)entry.Length);
-        void LoadHardMigration(ZipArchiveEntry entry) =>
-            (entry != null).Maybe(() => LoadHardMigration(JsonSerializer
-                .Deserialize<Dictionary<CatNo, Dictionary<int, HardMigrationInfo>>>(entry.Open())));
-        void LoadSoftMigration(ZipArchiveEntry entry) =>
-            (entry != null).Maybe(() => SoftMigrations =
-                JsonSerializer.Deserialize<Dictionary<Version, Dictionary<string, string>>>(entry.Open()));
+            new BinaryReader(entry.Open()).TryWith(stream => stream.ReadBytes((int)entry.Length));
+        void LoadHardMigration(ZipArchive archive) =>
+            archive.GetEntry(HARD_MIGRATION).With(entry => (null != entry)
+                .Maybe(() => entry.Open().TryWith(LoadHardMigration)));
+        void LoadSoftMigration(ZipArchive archive) =>
+            archive.GetEntry(SOFT_MIGRATION).With(entry => (null != entry)
+                .Maybe(() => entry.Open().TryWith(LoadSoftMigration)));
         void LoadCsvFile(Category category, ZipArchiveEntry entry) =>
             (entry != null).Maybe(() => category.LoadCsvValues(PkgId, System.Text.Encoding.UTF8.GetString(ToBytes(entry)))
                 .Do(value => Register(category, value.Item1, value.Item2)));
         void LoadCsvFiles(ZipArchive archive) =>
-            CategoryExtensions.All.Do(category =>
-                LoadCsvFile(category, archive.GetEntry($"{category.Index}.csv")));
+            CategoryExtensions.All.Do(category => LoadCsvFile(category, archive.GetEntry($"{category.Index}.csv")));
         internal override void Initialize() =>
-            ZipFile.OpenRead(ArchivePath)
-                .With(archive => LoadSoftMigration(archive.GetEntry(SOFT_MIGRATION)))
-                .With(archive => LoadHardMigration(archive.GetEntry(HARD_MIGRATION)))
-                .With(LoadCsvFiles)
+            ZipFile.OpenRead(ArchivePath).TryWith(archive => archive
+                .With(LoadHardMigration).With(LoadSoftMigration).With(LoadCsvFiles)
                 .Categories().Do(entry => new ArchiveCollector(entry.Key, PkgId)
-                    .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2)));
+                    .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2))));
     }
     internal static class ModPackageExtensions
     {
-        internal static bool AssetBundleExists(this string pkgId, string path) =>
+        internal static void TryWith<I>(this I input, Action<I> sideeffect) where I : IDisposable =>
+            input.TryWith(input => true.With(() => sideeffect(input)));
+        internal static O TryWith<I, O>(this I input, Func<I, O> sideeffect) where I : IDisposable
+        {
+            using (input) { return sideeffect(input); }
+        }
+        internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
+        {
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        };
+        internal static O TryParse<O>(this Stream input) where O : new()
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<O>(input, JsonOption);
+            }
+            catch (Exception e)
+            {
+                Plugin.Instance.Log.LogMessage("Failed to parse json file:");
+                Plugin.Instance.Log.LogMessage(e.StackTrace);
+                return new();
+            }
+        }
+        internal static bool ResourceExists(this string pkgId, string path) =>
             Packages[pkgId].ResourceExists(path);
         internal static ModInfo TranslateSoftMods(this CatNo categoryNo, int id) =>
             IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
@@ -383,7 +404,7 @@ namespace SardineTail
             (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
         internal static int ToId(this ModInfo info, CatNo categoryNo, int id) =>
             HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod)
-                ? Packages[mod.PkgId].ToId(mod, id) : info == null ? id 
+                ? Packages[mod.PkgId].ToId(mod, id) : info == null ? id
                 : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.ToId(info, id)
                 : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
         internal static void Initialize() =>
@@ -402,9 +423,18 @@ namespace SardineTail
     internal static class Hooks
     {
         [HarmonyPostfix]
+        [HarmonyWrapSafe]
         [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string), typeof(Il2CppSystem.Type))]
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : type.ToAsset(name.Split(':')) ?? __result;
+        [HarmonyPrefix]
+        [HarmonyWrapSafe]
+        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.LoadAsset), typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string))]
+        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.LoadAssetAsync), typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string))]
+        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.GetLoadedAssetBundle), typeof(string), typeof(string))]
+        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
+        static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
+            manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
@@ -414,7 +444,7 @@ namespace SardineTail
         public const string Process = "SamabakeScramble";
         public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
-        public const string Version = "0.9.0";
+        public const string Version = "1.0.0";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static readonly string PackagePath = Path.Combine(Paths.GameRootPath, "sardines");
         internal static readonly string DevelopmentPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "packages");

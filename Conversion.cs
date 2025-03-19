@@ -60,7 +60,8 @@ namespace SardineTail
                 : Merge(deps.Where(item => item.Item1.Any(dep.Item1.Contains)), dep)
                     .Concat(deps.Where(item => !item.Item1.Any(dep.Item1.Contains)));
         static string GeneratePackageName(Dependencies deps) =>
-            deps.Item1.Count() == 0 ? "listonly" : deps.Item1.Select(Path.GetFileNameWithoutExtension).MinBy(name => name.Length);
+            deps.Item1.Count() == 0 ? "listonly" : deps.Item1
+                .Select(Path.GetFileNameWithoutExtension).Where(name => !name.Contains("thumb")).MinBy(name => name.Length);
         static void ConvertPackage(string name, Dependencies deps) =>
             Directory.CreateDirectory(Path.Combine(Plugin.ConversionsPath, $"{name}-0.0.0"))
                 .With(() => Plugin.Instance.Log.LogMessage($"Conversion start for package: {name}"))
@@ -90,20 +91,17 @@ namespace SardineTail
         static string Normalize(string input) => string.IsNullOrEmpty(input) ? "0" : input;
         static Action<IEnumerable<ListInfoBase>> ConvertToCsv(this IEnumerable<Ktype> indices, string path) =>
             infos => File.WriteAllLines(path, [string.Join(',', indices),
-                .. infos.Select(info => string.Join(',', indices
-                    .Select(index => index == Ktype.MainManifest ? "abdata" : info.GetString(index)).Select(Normalize)))]);
+                .. infos.Select(info => string.Join(',', indices.Select(info.GetString).Select(Normalize)))]);
         static void ConvertToStructure(this IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
             infos.GenerateHardMigration(path, ConvertToStructure);
         static Dictionary<int, HardMigrationInfo> ConvertToStructure(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
             ConvertToStructure(category, infos, path, 0);
-        
         static string ConvertToGroupIdentity(Category category, ListInfoBase info) =>
             JsonSerializer.Serialize(category.Entries
-                .Where(entry => entry.Value is Vtype.Text && entry.Default.Length != 0 && entry.Index != Ktype.MainManifest)
+                .Where(entry => entry.Value is Vtype.Text && entry.Default.Length != 0)
                 .Select(entry => new Tuple<Entry, string>(entry, Normalize(info.GetString(entry.Index))))
                 .Where(tuple => !tuple.Item1.Default[0].Equals(tuple.Item2))
                 .ToDictionary(tuple => tuple.Item1.Index, tuple => tuple.Item2), JsonOption);
-
         static Dictionary<int, HardMigrationInfo> ConvertToStructure(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path, int index) =>
             infos.With(() => Directory.CreateDirectory(Path.Combine(path.FullName, category.Index.ToString())))
                 .GroupBy(info => ConvertToGroupIdentity(category, info), (group, infos) => ConvertToStructure(category, index++, group, infos, path))
@@ -116,7 +114,7 @@ namespace SardineTail
                 .ConvertToStructure(category, $"{category.Index}/group{index}", infos);
         static IEnumerable<Tuple<int, string>> ConvertToStructure(this DirectoryInfo path, Category category, string prefix, IEnumerable<ListInfoBase> infos) =>
             infos.Select(info => new Tuple<int, string>(info.Id, path.ConvertToStructure(ConvertName(info.Name), prefix,
-                category.Entries.Where(entry => entry.Default.Length == 0 || (entry.Value is not Vtype.Text && entry.Index != Ktype.MainManifest))
+                category.Entries.Where(entry => entry.Default.Length == 0 || (entry.Value is not Vtype.Text))
                     .Select(entry => new Tuple<Entry, string>(entry, Normalize(info.GetString(entry.Index))))
                     .Where(tuple => tuple.Item1.Default.Length == 0 || !tuple.Item1.Default[0].Equals(tuple.Item2))
                     .ToDictionary(tuple => tuple.Item1.Index, tuple => tuple.Item2))));

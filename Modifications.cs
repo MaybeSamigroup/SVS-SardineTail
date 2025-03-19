@@ -337,31 +337,28 @@ namespace SardineTail
         internal static void Apply(this CharacterMods mods, HumanData data) =>
             data.With(mods.Coordinates.Apply).With(mods.Body.Apply).With(mods.Face.Apply);
         static readonly string ModificationPath = Path.Combine(Plugin.Guid, "modification.json");
-        static void Serialize(ZipArchive archive) =>
-            HumanCustom.Instance.Human.data.TranslateSoftMods().Serialize(archive);
-        static void SerializeCoordinate(ZipArchive archive) =>
-            HumanCustom.Instance.Human.data.Coordinates
-                [HumanCustom.Instance.Human.data.Status.coordinateType].TranslateSoftMods().Serialize(archive);
+        static void Serialize(HumanData data, ZipArchive archive) =>
+            data.TranslateSoftMods().Serialize(archive);
+        static void SerializeCoordinate(HumanDataCoordinate data, ZipArchive archive) =>
+            data.TranslateSoftMods().Serialize(archive);
         static void Deserialize(HumanData data, CharaLimit limits, ZipArchive archive) =>
-            archive.Deserialize(data.TranslateHardMods, limits.Merge(data));
+            archive.Deserialize(data.TranslateHardMods(), limits.Merge(data));
         static void Deserialize(Human human, HumanDataCoordinate coord, CoordLimit limits, ZipArchive archive) =>
-            archive.Deserialize(coord.TranslateHardMods, limits.Merge(coord));
-        static void Serialize(int index, ZipArchive archive) =>
-            Manager.Game.saveData.Charas[index].charFile.TranslateSoftMods().Serialize(archive);
-        static void Deserialize(int index, ZipArchive archive) =>
-            archive.Deserialize(
-                Manager.Game.saveData.Charas[index].charFile.TranslateHardMods,
-                CharaLimit.All.Merge(Manager.Game.saveData.Charas[index].charFile));
+            archive.Deserialize(coord.TranslateHardMods(), limits.Merge(coord));
+        static void Serialize(int index, HumanData data, ZipArchive archive) =>
+            data.TranslateSoftMods().Serialize(archive);
+        static void Deserialize(int index, HumanData data, ZipArchive archive) =>
+            archive.Deserialize(data.TranslateHardMods(), CharaLimit.All.Merge(data));
         static void Serialize(this CharacterMods mods, ZipArchive archive) =>
             new StreamWriter(archive.CreateEntry(ModificationPath).Open())
                 .With(stream => stream.Write(JsonSerializer.Serialize(mods))).Close();
         static void Serialize(this CoordinateMods mods, ZipArchive archive) =>
              new StreamWriter(archive.CreateEntry(ModificationPath).Open())
                 .With(stream => stream.Write(JsonSerializer.Serialize(mods))).Close();
-        static void Deserialize<T>(this ZipArchive archive, Func<T> supply, Action<T> action) =>
-            archive.GetEntry(ModificationPath).Deserialize(supply, action);
-        static void Deserialize<T>(this ZipArchiveEntry entry, Func<T> supply, Action<T> action) =>
-            (entry != null).Either(() => action(supply()), () => entry.Open().With(stream => action(JsonSerializer.Deserialize<T>(stream))).Close());
+        static void Deserialize<T>(this ZipArchive archive, T mods, Action<T> action) =>
+            archive.With(() => action(mods)).GetEntry(ModificationPath).Deserialize(action);
+        static void Deserialize<T>(this ZipArchiveEntry entry, Action<T> action) =>
+            (entry != null).Maybe(() => entry.Open().With(stream => action(JsonSerializer.Deserialize<T>(stream))).Close());
         static Action<CharacterMods> Merge(this CharaLimit limits, HumanData data) =>
             limits.MergeCoordinates(data) + limits.MergeBody(data) + limits.MergeFace(data);
         static Action<CharacterMods> MergeFace(this CharaLimit limits, HumanData data) =>

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using UnityEngine;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
 
@@ -8,7 +9,6 @@ namespace SardineTail
 {
     internal static partial class CategoryExtensions
     {
-        internal static readonly Category NoCategory = new Category() { Index = CatNo.mt_dummy, Entries = [] };
         internal static readonly IEnumerable<Category> All = Enum.GetValues<CatNo>().Select(index => new Category()
         {
             Index = index,
@@ -185,6 +185,7 @@ namespace SardineTail
                     new Entry(Ktype.Kind, Vtype.Text, "0"),
                     new Entry(Ktype.Possess, Vtype.Text, "1"),
                     new Entry(Ktype.Name, Vtype.Name),
+                    new Entry(Ktype.Sex, Vtype.Text, "3"),
                     new Entry(Ktype.MainManifest, Vtype.Text, "abdata"),
                     new Entry(Ktype.MainAB, Ktype.MainData),
                     new Entry(Ktype.MainData, Vtype.Asset),
@@ -296,7 +297,7 @@ namespace SardineTail
                     new Entry(Ktype.MainManifest, Vtype.Text, "abdata"),
                     new Entry(Ktype.MainAB, Ktype.MainData),
                     new Entry(Ktype.MainData, Vtype.Asset),
-                    new Entry(Ktype.StateType, Vtype.Text, "1"),
+                    new Entry(Ktype.StateType, Vtype.Text, "0"),
                     new Entry(Ktype.Coordinate, Vtype.Text, "0"),
                     new Entry(Ktype.HideShorts, Vtype.Text, "1"),
                     new Entry(Ktype.NoShake, Vtype.Text, "0"),
@@ -307,9 +308,9 @@ namespace SardineTail
                     new Entry(Ktype.OverBotMaskAB, Ktype.OverBotMask),
                     new Entry(Ktype.OverBotMask, Vtype.Image, "0"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -335,7 +336,7 @@ namespace SardineTail
                     new Entry(Ktype.MainAB, Ktype.MainData),
                     new Entry(Ktype.MainData, Vtype.Asset),
                     new Entry(Ktype.NormalData, Vtype.Text, "0"),
-                    new Entry(Ktype.StateType, Vtype.Text, "1"),
+                    new Entry(Ktype.StateType, Vtype.Text, "0"),
                     new Entry(Ktype.Coordinate, Vtype.Text, "0"),
                     new Entry(Ktype.MabUV, Vtype.Text, "0"),
                     new Entry(Ktype.Sex, Vtype.Text, "3"),
@@ -344,9 +345,9 @@ namespace SardineTail
                     new Entry(Ktype.OverBotMaskAB, Ktype.OverBotMask),
                     new Entry(Ktype.OverBotMask, Vtype.Image, "0"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -374,9 +375,9 @@ namespace SardineTail
                     new Entry(Ktype.NailHide, Vtype.Text, "1"),
                     new Entry(Ktype.Sex, Vtype.Text, "3"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -399,9 +400,9 @@ namespace SardineTail
                     new Entry(Ktype.StateType, Vtype.Text, "1"),
                     new Entry(Ktype.Sex, Vtype.Text, "3"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -426,9 +427,9 @@ namespace SardineTail
                     new Entry(Ktype.ShoesType, Vtype.Text, "1"),
                     new Entry(Ktype.Sex, Vtype.Text, "1"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -455,9 +456,9 @@ namespace SardineTail
                     new Entry(Ktype.OverBotMaskAB, Ktype.OverBotMask),
                     new Entry(Ktype.OverBotMask, Vtype.Image, "0"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -483,9 +484,9 @@ namespace SardineTail
                     new Entry(Ktype.SocksDent, Vtype.Text, "0"),
                     new Entry(Ktype.Sex, Vtype.Text, "3"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -509,6 +510,7 @@ namespace SardineTail
                     new Entry(Ktype.MainData, Vtype.Asset),
                     new Entry(Ktype.NormalData, Vtype.Text, "0"),
                     new Entry(Ktype.StateType, Vtype.Text, "0"),
+                    new Entry(Ktype.Coordinate, Vtype.Text, "0"),
                     new Entry(Ktype.NotBra, Vtype.Text, "0"),
                     new Entry(Ktype.NoShake, Vtype.Text, "0"),
                     new Entry(Ktype.Sex, Vtype.Text, "3"),
@@ -517,9 +519,9 @@ namespace SardineTail
                     new Entry(Ktype.OverBotMaskAB, Ktype.OverBotMask),
                     new Entry(Ktype.OverBotMask, Vtype.Image, "0"),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
-                    new Entry(Ktype.MainTex, Vtype.Image, "0"),
+                    new Entry(Ktype.MainTex, Vtype.Image),
                     new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
-                    new Entry(Ktype.ColorMaskTex, Vtype.Image, "0"),
+                    new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.MainTex02AB, Ktype.MainTex02),
                     new Entry(Ktype.MainTex02, Vtype.Image, "0"),
                     new Entry(Ktype.ColorMask02AB, Ktype.ColorMask02Tex),
@@ -538,7 +540,6 @@ namespace SardineTail
                     new Entry(Ktype.Image, Vtype.Text, "0/1/2/3/4/5"),
                     new Entry(Ktype.Attribute, Vtype.Text, "0/1/3"),
                     new Entry(Ktype.Detail, Vtype.Text, "0/1/3"),
-                    new Entry(Ktype.Sort, Vtype.Text, "5"),
                 ],
                 CatNo.facepaint_layout => [
                     new Entry(Ktype.Kind, Vtype.Text, "0"),
@@ -626,7 +627,7 @@ namespace SardineTail
                     new Entry(Ktype.Kind, Vtype.Text, "0"),
                     new Entry(Ktype.Possess, Vtype.Text, "1"),
                     new Entry(Ktype.Name, Vtype.Name),
-                    new Entry(Ktype.MainAB, Ktype.ColorMaskTex),
+                    new Entry(Ktype.ColorMaskAB, Ktype.ColorMaskTex),
                     new Entry(Ktype.ColorMaskTex, Vtype.Image),
                     new Entry(Ktype.ThumbAB, Ktype.ThumbTex),
                     new Entry(Ktype.ThumbTex, Vtype.Image, "thumb_na"),
@@ -845,6 +846,7 @@ namespace SardineTail
                     new Entry(Ktype.Kind, Vtype.Text, "0"),
                     new Entry(Ktype.Possess, Vtype.Text, "1"),
                     new Entry(Ktype.Name, Vtype.Name),
+                    new Entry(Ktype.MainManifest, Vtype.Text, "abdata"),
                     new Entry(Ktype.MainAB, Ktype.LampTex),
                     new Entry(Ktype.MainTexAB, Ktype.MainTex),
                     new Entry(Ktype.MainTex, Vtype.Image, "0"),
@@ -888,5 +890,170 @@ namespace SardineTail
                 _ => []
             }
         }).Where(category => category.Entries.Length > 0);
+    internal static void WrapMode(this string[] path, Texture2D t2d) =>
+        (t2d.wrapModeU, t2d.wrapModeV, t2d.wrapModeW) = (path[0], path[^1]) switch
+        {
+            (_, "RepeatRepeatRepeat.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
+            (_, "RepeatRepeatClamp.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Clamp),
+            (_, "RepeatRepeatMirror.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Mirror),
+            (_, "RepeatRepeatMirrorOnce.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce),
+
+            (_, "RepeatClampRepeat.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Clamp, TextureWrapMode.Repeat),
+            (_, "RepeatClampClamp.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Clamp, TextureWrapMode.Clamp),
+            (_, "RepeatClampMirror.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Clamp, TextureWrapMode.Mirror),
+            (_, "RepeatClampMirrorOnce.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce),
+
+            (_, "RepeatMirrorRepeat.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Mirror, TextureWrapMode.Repeat),
+            (_, "RepeatMirrorClamp.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Mirror, TextureWrapMode.Clamp),
+            (_, "RepeatMirrorMirror.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Mirror, TextureWrapMode.Mirror),
+            (_, "RepeatMirrorMirrorOnce.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce),
+
+            (_, "RepeatMirrorOnceRepeat.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat),
+            (_, "RepeatMirrorOnceClamp.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp),
+            (_, "RepeatMirrorOnceMirror.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror),
+            (_, "RepeatMirrorOnceMirrorOnce.png") =>
+                (TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce),
+
+            (_, "ClampRepeatRepeat.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
+            (_, "ClampRepeatClamp.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Repeat, TextureWrapMode.Clamp),
+            (_, "ClampRepeatMirror.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Repeat, TextureWrapMode.Mirror),
+            (_, "ClampRepeatMirrorOnce.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce),
+
+            (_, "ClampClampRepeat.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Repeat),
+            (_, "ClampClampClamp.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Clamp),
+            (_, "ClampClampMirror.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Mirror),
+            (_, "ClampClampMirrorOnce.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce),
+
+            (_, "ClampMirrorRepeat.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Mirror, TextureWrapMode.Repeat),
+            (_, "ClampMirrorClamp.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Mirror, TextureWrapMode.Clamp),
+            (_, "ClampMirroMirror.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Mirror, TextureWrapMode.Mirror),
+            (_, "ClampMirroMirrorOnce.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce),
+
+            (_, "ClampMirrorOnceRepeat.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat),
+            (_, "ClampMirrorOnceClamp.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp),
+            (_, "ClampMirroOnceMirror.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror),
+            (_, "ClampMirroOnceMirrorOnce.png") =>
+                (TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorRepeatRepeat.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
+            (_, "MirrorRepeatClamp.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Repeat, TextureWrapMode.Clamp),
+            (_, "MirrorRepeatMirror.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Repeat, TextureWrapMode.Mirror),
+            (_, "MirrorRepeatMirrorOnce.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorClampRepeat.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Clamp, TextureWrapMode.Repeat),
+            (_, "MirrorClampClamp.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Clamp, TextureWrapMode.Clamp),
+            (_, "MirrorClampMirror.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Clamp, TextureWrapMode.Mirror),
+            (_, "MirrorClampMirrorOnce.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorMirrorRepeat.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Mirror, TextureWrapMode.Repeat),
+            (_, "MirrorMirrorClamp.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Mirror, TextureWrapMode.Clamp),
+            (_, "MirrorMirroMirror.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Mirror, TextureWrapMode.Mirror),
+            (_, "MirrorMirroMirrorOnce.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorMirrorOnceRepeat.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat),
+            (_, "MirrorMirrorOnceClamp.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp),
+            (_, "MirrorMirroOnceMirror.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror),
+            (_, "MirrorMirroOnceMirrorOnce.png") =>
+                (TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorOnceRepeatRepeat.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
+            (_, "MirrorOnceRepeatClamp.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat, TextureWrapMode.Clamp),
+            (_, "MirrorOnceRepeatMirror.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat, TextureWrapMode.Mirror),
+            (_, "MirrorOnceRepeatMirrorOnce.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorOnceClampRepeat.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp, TextureWrapMode.Repeat),
+            (_, "MirrorOnceClampClamp.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp, TextureWrapMode.Clamp),
+            (_, "MirrorOnceClampMirror.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp, TextureWrapMode.Mirror),
+            (_, "MirrorOnceClampMirrorOnce.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorOnceMirrorRepeat.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror, TextureWrapMode.Repeat),
+            (_, "MirrorOnceMirrorClamp.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror, TextureWrapMode.Clamp),
+            (_, "MirrorOnceMirroMirror.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror, TextureWrapMode.Mirror),
+            (_, "MirrorOnceMirroMirrorOnce.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror, TextureWrapMode.MirrorOnce),
+
+            (_, "MirrorOnceMirrorOnceRepeat.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce, TextureWrapMode.Repeat),
+            (_, "MirrorOnceMirrorOnceClamp.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce, TextureWrapMode.Clamp),
+            (_, "MirrorOnceMirroOnceMirror.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce, TextureWrapMode.Mirror),
+            (_, "MirrorOnceMirroOnceMirrorOnce.png") =>
+                (TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce, TextureWrapMode.MirrorOnce),
+
+            (_, "ThumbTex.png") => (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Clamp),
+            ("bo_body", _) or
+            ("bo_head", _) or
+            ("co_bot", _) or
+            ("co_bra", _) or
+            ("co_gloves", _) or
+            ("co_panst", _) or
+            ("co_shoes", _) or
+            ("co_shorts", _) or
+            ("co_socks", _) or
+            ("co_top", _) or
+            ("mt_body_detail", _) or
+            ("mt_eyeshadow", _) or
+            ("mt_face_detail", _) or
+            ("mt_sunburn", _) or
+            ("mt_pattern", _) => (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
+            _ => (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Clamp)
+        };
     }
 }
