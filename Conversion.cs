@@ -21,38 +21,38 @@ namespace SardineTail
         internal static void Initialize() =>
             Util.Hook<Manager.Game>(() => Plugin.HardmodConversion.Value.Maybe(() => Convert(new(), new())), () => { });
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
-            { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
+        { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         static void Convert(HashSet<string> originalAB, List<Dependency> dependencies)
         {
             All.Do(category =>
             {
                 foreach (var (id, info) in Human.lstCtrl._table[category.Index])
                 {
-                    if (id > 100 && category.Index.TranslateSoftMods(id) == null)
-                    {
-                        dependencies.Add(new (category.Entries
-                            .Where(entry => entry.Value is Vtype.Store)
-                            .Select(entry => entry.Index).Select(info.GetString)
-                            .Where(path => File.Exists(Path.Combine(Paths.GameRootPath, "abdata", path)))
-                            .ToHashSet(), info));
-                    }
-                    else if (id >= 0)
+                    if (0 <= id && id < 100)
                     {
                         category.Entries.Where(entry => entry.Value is Vtype.Store)
                             .Select(entry => entry.Index).Select(info.GetString)
                                 .Where(path => !"0".Equals(path)).Do(path => originalAB.Add(path));
                     }
+                    else if (category.Index.TranslateSoftMods(id) == null)
+                    {
+                        dependencies.Add(new(category.Entries
+                            .Where(entry => entry.Value is Vtype.Store)
+                            .Select(entry => entry.Index).Select(info.GetString)
+                            .Where(path => File.Exists(Path.Combine(Paths.GameRootPath, "abdata", path)))
+                            .ToHashSet(), info));
+                    }
                 }
             });
             dependencies.Select(tuple => new Dependency(tuple.Item1.Except(originalAB).ToHashSet(), tuple.Item2))
-                .Aggregate<Dependency,IEnumerable<Dependencies>>([], Accumulate)
+                .Aggregate<Dependency, IEnumerable<Dependencies>>([], Accumulate)
                 .GroupBy(GeneratePackageName, (name, deps) => name.Merge(deps))
                 .Do(tuple => ConvertPackage(tuple.Item1, tuple.Item2));
         }
         static Tuple<string, Dependencies> Merge(this string name, IEnumerable<Dependencies> deps) =>
-            new (name, deps.Aggregate((fst, snd) => new (fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2))));
+            new(name, deps.Aggregate((fst, snd) => new(fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2))));
         static IEnumerable<Dependencies> Merge(IEnumerable<Dependencies> deps, Dependency dep) =>
-            [deps.Aggregate(new Dependencies(dep.Item1, [dep.Item2]), (fst, snd) => new (fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2)))];
+            [deps.Aggregate(new Dependencies(dep.Item1, [dep.Item2]), (fst, snd) => new(fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2)))];
         static IEnumerable<Dependencies> Accumulate(IEnumerable<Dependencies> deps, Dependency dep) =>
             dep.Item1.Count() == 0
                 ? Merge(deps.Where(item => item.Item1.Count() == 0), dep)
@@ -73,7 +73,7 @@ namespace SardineTail
                 .Do(entry => Directory.CreateDirectory(Path.GetDirectoryName(entry.Value)).With(() => File.Copy(entry.Key, entry.Value)));
         static void GenerateHardMigration(this IEnumerable<ListInfoBase> infos, DirectoryInfo path,
             Func<Category, IEnumerable<ListInfoBase>, DirectoryInfo, Dictionary<int, HardMigrationInfo>> process) =>
-            infos.GroupBy(info => (CatNo) info.Category, (category, subinfos) => new Tuple<CatNo, Dictionary<int, HardMigrationInfo>>(
+            infos.GroupBy(info => (CatNo)info.Category, (category, subinfos) => new Tuple<CatNo, Dictionary<int, HardMigrationInfo>>(
                     category, process(All.Where(item => item.Index == category).First(), subinfos, path)))
                 .Where(item => item.Item2.Count() > 0).ToDictionary(item => item.Item1, item => item.Item2)
                 .With(hardmig => File.WriteAllText(Path.Combine(path.FullName, "hardmig.json"),
@@ -81,9 +81,13 @@ namespace SardineTail
         static void ConvertToCsv(this IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
             infos.GenerateHardMigration(path, ConvertToCsv);
         static Tuple<int, HardMigrationInfo> NotifyIdConflict(int id, IEnumerable<string> mods) =>
-            new (id, new HardMigrationInfo() { ModId = mods.Count() > 1 ? mods
+            new(id, new HardMigrationInfo()
+            {
+                ModId = mods.Count() > 1 ? mods
                 .With(() => Plugin.Instance.Log.LogMessage($"Id:{id} conflict between:"))
-                .With(() => mods.Do(mod => Plugin.Instance.Log.LogMessage(mod))).First() : mods.First(), Version = new Version(0,0,0) });
+                .With(() => mods.Do(mod => Plugin.Instance.Log.LogMessage(mod))).First() : mods.First(),
+                Version = new Version(0, 0, 0)
+            });
         static Dictionary<int, HardMigrationInfo> ConvertToCsv(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
             infos.With(category.Entries.Select(entry => entry.Index).ConvertToCsv(Path.Combine(path.FullName, $"{category.Index}.csv")))
                 .GroupBy(info => info.Id, info => $"{category.Index}.csv/{info.Name}", NotifyIdConflict)
@@ -108,7 +112,7 @@ namespace SardineTail
                 .Aggregate((fst, snd) => fst.Concat(snd))
                 .GroupBy(tuple => tuple.Item1, tuple => tuple.Item2, NotifyIdConflict)
                 .ToDictionary(item => item.Item1, item => item.Item2);
-        static IEnumerable<Tuple<int, string>> ConvertToStructure(Category category, int index, string group,  IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
+        static IEnumerable<Tuple<int, string>> ConvertToStructure(Category category, int index, string group, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
             Directory.CreateDirectory(Path.Combine(path.FullName, category.Index.ToString(), $"group{index}"))
                 .With(subpath => File.WriteAllText(Path.Combine(subpath.FullName, "values.json"), group))
                 .ConvertToStructure(category, $"{category.Index}/group{index}", infos);
