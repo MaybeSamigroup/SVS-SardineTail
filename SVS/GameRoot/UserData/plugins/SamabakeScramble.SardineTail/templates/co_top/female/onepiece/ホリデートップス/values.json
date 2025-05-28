@@ -1,0 +1,14 @@
+{
+  "Possess": "2",
+  "MainManifest": "add027_00",
+  "MainAB": "chara/co_top_027_00.unity3d",
+  "MainData": "p_cf_top_xmas01",
+  "OverTopMaskAB": "chara/co_top_027_00.unity3d",
+  "OverTopMask": "t_cf_top_xmas01_body",
+  "MainTex02AB": "chara/co_top_027_00.unity3d",
+  "MainTex02": "t_cf_top_xmas01_2_t",
+  "ColorMask02AB": "chara/co_top_027_00.unity3d",
+  "ColorMask02Tex": "t_cf_top_xmas01_2_mc",
+  "ThumbAB": "chara/thumb/co_top_027_00.unity3d",
+  "ThumbTex": "p_cf_top_xmas01"
+}

@@ -1,0 +1,12 @@
+{
+  "Kind": "2",
+  "Possess": "2",
+  "MainManifest": "add008_00",
+  "MainAB": "chara/co_socks_008_00.unity3d",
+  "SocksDent": "1",
+  "MainData": "p_cf_socks_devilsocks00",
+  "DentTexAB": "chara/mt_body_bump_008_00.unity3d",
+  "DentTex": "cf_t_body_bump_008_00",
+  "ThumbAB": "chara/thumb/co_socks_008_00.unity3d",
+  "ThumbTex": "p_cf_socks_devilsocks00"
+}

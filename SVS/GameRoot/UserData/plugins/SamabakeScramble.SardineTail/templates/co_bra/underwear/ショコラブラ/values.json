@@ -1,0 +1,12 @@
+{
+  "Possess": "2",
+  "MainManifest": "add030_00",
+  "MainAB": "chara/co_bra_030_00.unity3d",
+  "MainData": "p_cf_bra_choco00",
+  "MainTex02AB": "chara/co_bra_030_00.unity3d",
+  "MainTex02": "t_cf_bra_choco00_t_b",
+  "ColorMask02AB": "chara/co_bra_030_00.unity3d",
+  "ColorMask02Tex": "t_cf_bra_choco00_mc",
+  "ThumbAB": "chara/thumb/co_bra_030_00.unity3d",
+  "ThumbTex": "p_cf_bra_choco00"
+}

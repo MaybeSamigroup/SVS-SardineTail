@@ -92,7 +92,6 @@ namespace SardineTail
             infos.With(category.Entries.Select(entry => entry.Index).ConvertToCsv(Path.Combine(path.FullName, $"{category.Index}.csv")))
                 .GroupBy(info => info.Id, info => $"{category.Index}.csv/{info.Name}", NotifyIdConflict)
                 .ToDictionary(item => item.Item1, item => item.Item2);
-        static string Normalize(string input) => string.IsNullOrEmpty(input) ? "0" : input;
         static Action<IEnumerable<ListInfoBase>> ConvertToCsv(this IEnumerable<Ktype> indices, string path) =>
             infos => File.WriteAllLines(path, [string.Join(',', indices),
                 .. infos.Select(info => string.Join(',', indices.Select(info.GetString).Select(Normalize)))]);

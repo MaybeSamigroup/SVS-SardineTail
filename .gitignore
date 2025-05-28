@@ -3,5 +3,4 @@ GameRoot/**/values.json
 obj/
 bin/
 *.sln
-
-release.zip
+*.zip

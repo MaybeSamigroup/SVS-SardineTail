@@ -1,7 +1,4 @@
 using HarmonyLib;
-using BepInEx;
-using BepInEx.Configuration;
-using BepInEx.Unity.IL2CPP;
 using UnityEngine;
 using Character;
 using System;
@@ -75,7 +72,7 @@ namespace SardineTail
                 "0" when values.ContainsKey(Ktype.MainData) && values[Ktype.MainData].Split(':').Length == 3 => "0"
                     .With(() => values[Ktype.MainData].Split(':')[1]
                     .With(path => entry.Children
-                        .Where(child => !values[child].IsNullOrEmpty() && !values[child].Equals("0"))
+                        .Where(child => !string.IsNullOrEmpty(values[child]) && !values[child].Equals("0"))
                         .Do(child => values[child] = $"{pkgId}:{path}:{values[child]}"))),
                 Plugin.AssetBundle => Plugin.AssetBundle
                     .With(() => entry.Children
@@ -137,13 +134,12 @@ namespace SardineTail
                     .Select(index => new Mod(category.Entries[index].Index, Normalize(values[index]))));
         static Resolution Resolve(this Category category, string pkgId, Mods mods) =>
             category.Resolve(pkgId, $"{category.Index}.csv/{mods.First(mod => mod.Item1 is Ktype.Name).Item2}", mods);
-        internal static Action<ListInfoBase> RegisterMod(this Category category) =>
-            info => Human.lstCtrl._table[category.Index].Add(info.Id, info);
+        static string Normalize(string input) => string.IsNullOrEmpty(input) ? "0" : input;
     }
     internal static partial class CategoryNoExtensions
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000 + new System.Random().Next(100));
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000);
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
         internal static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) =>
             value switch
@@ -266,6 +262,8 @@ namespace SardineTail
             Cache.With(cache => cache.Values.Do(item => item.Unload(true))).Clear();
         internal UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
             GetAssetBundle(bundle).LoadAsset(asset, type);
+        internal UnityEngine.Object GetAsset(string bundle, string asset) =>
+            GetAssetBundle(bundle).LoadAsset(asset);
         internal Texture2D GetTexture(string path) =>
             LoadTexture(path)?.With(path.Split(Path.AltDirectorySeparatorChar).WrapMode);
         internal Texture2D ToTexture(byte[] bytes) =>
@@ -380,25 +378,26 @@ namespace SardineTail
                 1 => [],
                 _ => Version.TryParse(items[^1], out var version) ? [version] : [],
             };
-        static string DirectoryId(string path) =>
-            string.Join('-', Path.GetRelativePath(Plugin.DevelopmentPath, path).Split('-')[0..^1]);
+        static string DirectoryId(string root, string path) =>
+            string.Join('-', Path.GetRelativePath(root, path).Split('-')[0..^1]);
         static string ArchiveId(string path) =>
             string.Join('-', Path.GetFileName(path).Split('-')[0..^1]);
-        static IEnumerable<ModPackage> DirectoryToPackage(string path) =>
-             Path.GetRelativePath(Plugin.DevelopmentPath, path).Split('-').ToVersion()
-                .Select(version => new DirectoryPackage(DirectoryId(path), version, path));
+        static Func<string, IEnumerable<ModPackage>> DirectoryToPackage(string root) =>
+             path => Path.GetRelativePath(root, path).Split('-').ToVersion()
+                .Select(version => new DirectoryPackage(DirectoryId(root, path), version, path));
         static IEnumerable<ModPackage> ArchiveToPackage(string path) =>
             Path.GetFileNameWithoutExtension(path).Split('-').ToVersion()
                 .Select(version => new ArchivePackage(ArchiveId(path), version, path));
         static IEnumerable<ModPackage> ArchivePackages(string path) =>
             Directory.GetFiles(path).Where(IsArchivePackage)
                 .SelectMany(ArchiveToPackage).Concat(Directory.GetDirectories(path).SelectMany(ArchivePackages));
-        static IEnumerable<ModPackage> DirectoryPackages =>
+        static IEnumerable<ModPackage> DirectoryPackages(string path) =>
             Plugin.DevelopmentMode.Value ?
-                Directory.GetDirectories(Plugin.DevelopmentPath).SelectMany(DirectoryToPackage) : [];
+                Directory.GetDirectories(Path.Combine(path, "UserData", "plugins", Plugin.Guid, "packages"))
+                    .SelectMany(DirectoryToPackage(path)) : [];
         static bool IsArchivePackage(string path) =>
             ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
-        static Dictionary<string, ModPackage> Packages;
+        static Dictionary<string, ModPackage> Packages = new ();
         internal static Dictionary<CatNo, Dictionary<int, ModInfo>> HardMigrations = new();
         internal static void Register(CatNo categoryNo, int id, ModInfo info) =>
             (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
@@ -407,26 +406,38 @@ namespace SardineTail
                 ? Packages[mod.PkgId].ToId(mod, id) : info == null ? id
                 : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.ToId(info, id)
                 : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
-        internal static void Initialize() =>
-            ArchivePackages(Plugin.PackagePath).Concat(DirectoryPackages).GroupBy(item => item.PkgId)
+        internal static void InitializePackages(this string path) =>
+            ArchivePackages(Path.Combine(path, "sardines")).Concat(DirectoryPackages(path)).GroupBy(item => item.PkgId)
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
-                .With(packages => Packages = packages)
-                .Values.Do(item => item.Initialize());
-        internal static UnityEngine.Object ToAsset(this Il2CppSystem.Type type, string[] items) =>
+                .Select(entry => Packages[entry.Key] = entry.Value)
+                .Do(item => item.Initialize());
+        internal static UnityEngine.Object ToAsset(this string[] items, Il2CppSystem.Type type) =>
             items.Length switch
             {
                 2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
                 3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2], type),
                 _ => null
             };
+        internal static UnityEngine.Object ToAsset(this string[] items) =>
+            items.Length switch
+            {
+                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
+                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
+                _ => null
+            };
     }
-    internal static class Hooks
+    static partial class Hooks
     {
         [HarmonyPostfix]
         [HarmonyWrapSafe]
         [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string), typeof(Il2CppSystem.Type))]
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
-            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : type.ToAsset(name.Split(':')) ?? __result;
+            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset(type) ?? __result;
+        [HarmonyPostfix]
+        [HarmonyWrapSafe]
+        [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string))]
+        static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
+            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
         [HarmonyPrefix]
         [HarmonyWrapSafe]
         [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.LoadAsset), typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string))]
@@ -435,35 +446,5 @@ namespace SardineTail
         [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
-    }
-    [BepInProcess(Process)]
-    [BepInDependency(Fishbone.Plugin.Guid)]
-    [BepInPlugin(Guid, Name, Version)]
-    public class Plugin : BasePlugin
-    {
-        public const string Process = "SamabakeScramble";
-        public const string Name = "SardineTail";
-        public const string Guid = $"{Process}.{Name}";
-        public const string Version = "1.0.0";
-        internal const string AssetBundle = "sardinetail.unity3d";
-        internal static readonly string PackagePath = Path.Combine(Paths.GameRootPath, "sardines");
-        internal static readonly string DevelopmentPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "packages");
-        internal static readonly string ConversionsPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "hardmods");
-        internal static Plugin Instance;
-        internal static ConfigEntry<bool> DevelopmentMode;
-        internal static ConfigEntry<bool> HardmodConversion;
-        internal static ConfigEntry<bool> StructureConversion;
-        private Harmony Patch;
-        public override void Load() =>
-            Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
-                .With(() => Instance = this)
-                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
-                .With(() => HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false))
-                .With(() => StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false))
-                .With(ModPackageExtensions.Initialize)
-                .With(ModificationExtensions.Initialize)
-                .With(CategoryExtensions.Initialize);
-        public override bool Unload() =>
-            true.With(Patch.UnpatchSelf) && base.Unload();
     }
 }

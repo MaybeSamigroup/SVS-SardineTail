@@ -1,0 +1,10 @@
+{
+  "NoShake": "2",
+  "MainData": "p_cf_top_overall00",
+  "OverTopMask": "t_cf_top_overall00_body",
+  "MainTex02AB": "chara/co_top_000_00.unity3d",
+  "MainTex02": "t_cf_top_overall00_op1_t",
+  "ColorMask02AB": "chara/co_top_000_00.unity3d",
+  "ColorMask02Tex": "t_cf_top_overall00_op1_mc",
+  "ThumbTex": "p_cf_top_overall00"
+}
