@@ -1,9 +1,0 @@
-{
-  "MainManifest": "add011_00",
-  "MainAB": "chara/co_top_011_00.unity3d",
-  "NoShake": "2",
-  "MainData": "p_cf_top_cafeclerk00",
-  "OverTopMaskAB": "chara/co_top_011_00.unity3d",
-  "OverTopMask": "t_cf_top_cafeclerk00_body",
-  "ThumbTex": "p_cf_top_cafeclerk00"
-}

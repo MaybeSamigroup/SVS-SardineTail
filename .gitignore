@@ -1,5 +1,5 @@
-GameRoot/BepinEx/plugins/
-GameRoot/**/values.json
+*/GameRoot/BepinEx/plugins/
+*/GameRoot/**/values.json
 obj/
 bin/
 *.sln

@@ -4,7 +4,7 @@ Fundamental plugin to develop soft mod for SamabakeScramble and modification loa
 
 ## Prerequisites
 
-- [SVS-HF_Patch](https://github.com/BepInEx/BepInEx)
+- [SVS-HF_Patch](https://github.com/ManlyMarco/SVS-HF_Patch)
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
@@ -15,7 +15,7 @@ Confirmed working under SamabakeScramble 1.1.6 and DigitalCraft 2.1.0
 
 ## Installation
 
-Extract the release to your game install directory.
+Extract the [latest release](https://github.com/MaybeSamigroup/SVS-SardineTail/releases/latest) to your game install directory.
 
 ## Migration from 1.0. release
 
