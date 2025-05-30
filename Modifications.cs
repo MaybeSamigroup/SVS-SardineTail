@@ -313,29 +313,35 @@ namespace SardineTail
         static void Apply(this Dictionary<ChaFileDefine.CoordinateType, CoordinateMods> mods, HumanData data) =>
             mods.Do(entry => entry.Value.Apply(data.Coordinates[(int)entry.Key]));
         static void Apply(this FaceMods mods, HumanData data) =>
-            data.Custom.Face.With(mods.Detail.ApplyDetail)
-                .With(mods.Eyes.Apply)
-                .With(mods.Eyebrows.ApplyEyebrows)
-                .With(mods.Eyelid.ApplyEyelid)
-                .With(mods.EyelineDown.ApplyEyelineDown)
-                .With(mods.EyelineUp.ApplyEyelineUp)
-                .With(mods.EyeWhite.ApplyEyeWhite)
-                .With(mods.Head.ApplyHead)
-                .With(mods.Nose.ApplyNose)
-                .With(mods.LipLine.ApplyLipLine)
-                .With(mods.Mole.ApplyMole)
-                .With(mods.MoleLayout.ApplyMoleLayout);
-        static void ApplyDetail(this ModInfo mod, HumanDataBody data) =>
-            data.detailId = mod.ToId(CatNo.mt_body_detail, data.detailId);
+            (mods != null).Maybe(() =>
+                data.Custom.Face
+                    .With(mods.Detail.ApplyDetail)
+                    .With(mods.Eyes.Apply)
+                    .With(mods.Eyebrows.ApplyEyebrows)
+                    .With(mods.Eyelid.ApplyEyelid)
+                    .With(mods.EyelineDown.ApplyEyelineDown)
+                    .With(mods.EyelineUp.ApplyEyelineUp)
+                    .With(mods.EyeWhite.ApplyEyeWhite)
+                    .With(mods.Head.ApplyHead)
+                    .With(mods.Nose.ApplyNose)
+                    .With(mods.LipLine.ApplyLipLine)
+                    .With(mods.Mole.ApplyMole)
+                    .With(mods.MoleLayout.ApplyMoleLayout));
         static void ApplyNip(this ModInfo mod, HumanDataBody data) =>
             data.nipId = mod.ToId(CatNo.mt_nip, data.nipId);
+        static void ApplyDetail(this ModInfo mod, HumanDataBody data) =>
+            data.detailId = mod.ToId(CatNo.mt_body_detail, data.detailId);
         static void ApplySunburn(this ModInfo mod, HumanDataBody data) =>
             data.sunburnId = mod.ToId(CatNo.mt_sunburn, data.sunburnId);
         static void ApplyUnderhair(this ModInfo mod, HumanDataBody data) =>
             data.underhairId = mod.ToId(CatNo.mt_underhair, data.underhairId);
         static void Apply(this BodyMods mods, HumanData data) =>
-            data.Custom.Body.With(mods.Detail.ApplyDetail).With(mods.Nip.ApplyNip)
-                .With(mods.Sunburn.ApplySunburn).With(mods.Underhair.ApplyUnderhair);
+            (mods != null).Maybe(() =>
+                data.Custom.Body
+                    .With(mods.Nip.ApplyNip)
+                    .With(mods.Detail.ApplyDetail)
+                    .With(mods.Sunburn.ApplySunburn)
+                    .With(mods.Underhair.ApplyUnderhair));
         static void Apply(this ModInfo mod, HumanData data) =>
             data.Graphic.RampID = mod.ToId(CatNo.mt_ramp, data.Graphic.RampID);
         internal static void Apply(this CharacterMods mods, HumanData data) =>

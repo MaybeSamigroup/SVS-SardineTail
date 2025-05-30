@@ -42,24 +42,16 @@ namespace SardineTail
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
     [BepInPlugin(Guid, Name, Version)]
-    public class Plugin : BasePlugin
+    public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";
-        public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
-        public const string Version = "1.0.1";
-        internal const string AssetBundle = "sardinetail.unity3d";
-        internal static Plugin Instance;
         internal static ConfigEntry<bool> DevelopmentMode;
-        internal static ConfigEntry<bool> HardmodConversion;
-        internal static ConfigEntry<bool> StructureConversion;
         private Harmony Patch;
         public override void Load() =>
             Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
                 .With(() => Instance = this)
                 .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
-                .With(() => HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false))
-                .With(() => StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false))
                 .With(ModificationExtensions.Initialize);
         public override bool Unload() =>
             true.With(Patch.UnpatchSelf) && base.Unload();

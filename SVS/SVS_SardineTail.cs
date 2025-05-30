@@ -35,15 +35,11 @@ namespace SardineTail
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
     [BepInPlugin(Guid, Name, Version)]
-    public class Plugin : BasePlugin
+    public partial class Plugin : BasePlugin
     {
         public const string Process = "SamabakeScramble";
-        public const string Name = "SardineTail";
         public const string Guid = $"{Process}.{Name}";
-        public const string Version = "1.0.1";
-        internal const string AssetBundle = "sardinetail.unity3d";
         internal static readonly string ConversionsPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "hardmods");
-        internal static Plugin Instance;
         internal static ConfigEntry<bool> DevelopmentMode;
         internal static ConfigEntry<bool> HardmodConversion;
         internal static ConfigEntry<bool> StructureConversion;

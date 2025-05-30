@@ -1,4 +1,5 @@
 using HarmonyLib;
+using BepInEx.Unity.IL2CPP;
 using UnityEngine;
 using Character;
 using System;
@@ -446,5 +447,12 @@ namespace SardineTail
         [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
+    }
+    public partial class Plugin : BasePlugin
+    {
+        public const string Name = "SardineTail";
+        public const string Version = "1.0.2";
+        internal const string AssetBundle = "sardinetail.unity3d";
+        internal static Plugin Instance;
     }
 }
