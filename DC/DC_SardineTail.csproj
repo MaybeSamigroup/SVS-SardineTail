@@ -3,7 +3,7 @@
         <TargetFramework>net6</TargetFramework>
         <AssemblyName>DC_SardineTail</AssemblyName>
         <Description>Runtime mod loader for DigitalCraft</Description>
-        <Version>1.0.2</Version>
+        <Version>1.0.3</Version>
         <LangVersion>latest</LangVersion>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<GameName>DigitalCraft</GameName>
