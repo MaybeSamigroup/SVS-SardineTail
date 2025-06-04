@@ -447,6 +447,7 @@ namespace SardineTail
         [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
+        
     }
     public partial class Plugin : BasePlugin
     {

@@ -39,7 +39,7 @@ namespace SardineTail
                         dependencies.Add(new(category.Entries
                             .Where(entry => entry.Value is Vtype.Store)
                             .Select(entry => entry.Index).Select(info.GetString)
-                            .Where(path => File.Exists(Path.Combine(Paths.GameRootPath, "abdata", path)))
+                            .Where(path => path != null && File.Exists(Path.Combine(Paths.GameRootPath, "abdata", path)))
                             .ToHashSet(), info));
                     }
                 }

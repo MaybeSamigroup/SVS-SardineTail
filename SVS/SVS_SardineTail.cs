@@ -27,9 +27,9 @@ namespace SardineTail
             Event.OnActorDeserialize +=
                 (actor, archive) => archive.Load(actor.charFile);
             Event.OnPreCharacterDeserialize +=
-                (data, limits, archive, current) => data.With(archive.Load, limits).With(current.Save);
+                (data, limits, archive, current) => data.With(archive.Load(limits)).With(current.Save);
             Event.OnPreCoordinateDeserialize +=
-                (_, data, limits, archive) => archive.Load(limits, data);
+                (_, data, limits, archive) => archive.Load(limits)(data);
         }
     }
     [BepInProcess(Process)]

@@ -373,14 +373,14 @@ namespace SardineTail
             (entry = archive.GetEntry(ModsPath) ?? archive.GetEntry(LegacyPath)) != null;
         static bool TryGet<T>(this ZipArchive archive, out T value) =>
             (value = archive.TryGet(out var entry) ? Load<T>(entry.Open()) : default) != null;
-        static void Load<T>(this ZipArchive archive, T hardMods, Action<T> applicator) =>
-            archive.With(hardMods.Curry(applicator)).TryGet(out T value).Maybe(() => applicator(value));
+        static void Load<T>(this ZipArchive archive, T mods, Action<T> applicator) =>
+            archive.With(applicator.Apply(mods)).TryGet(out T value).Maybe(applicator.Apply(value));
         static void Load(this ZipArchive archive, HumanData data) =>
             archive.Load(data.TranslateHardMods(), CharaLimit.All.Merge(data));
-        static void Load(this ZipArchive archive, CharaLimit limits, HumanData data) =>
-            archive.Load(data.TranslateHardMods(), limits.Merge(data));
-        static void Load(this ZipArchive archive, CoordLimit limits, HumanDataCoordinate data) =>
-            archive.Load(data.TranslateHardMods(), limits.Merge(data));
+        static Action<HumanData> Load(this ZipArchive archive, CharaLimit limits) =>
+            data => archive.Load(data.TranslateHardMods(), limits.Merge(data));
+        static Action<HumanDataCoordinate> Load(this ZipArchive archive, CoordLimit limits) =>
+            data => archive.Load(data.TranslateHardMods(), limits.Merge(data));
         static Action<CharacterMods> Merge(this CharaLimit limits, HumanData data) =>
             limits.MergeCoordinates(data) + limits.MergeBody(data) + limits.MergeFace(data) + limits.MergeGraphic(data);
         static Action<CharacterMods> MergeFace(this CharaLimit limits, HumanData data) =>
