@@ -28,7 +28,7 @@ namespace SardineTail
             Event.OnPreCharacterDeserialize +=
                 (data, archive) => archive.Load(data);
             Event.OnPreCoordinateDeserialize +=
-                (_, data, limits, archive, current) => data.With(archive.Load, limits).With(current.Save);
+                (_, data, limits, archive, current) => data.With(archive.Load(limits)).With(current.Save);
         }
     }
     internal static partial class Hooks
