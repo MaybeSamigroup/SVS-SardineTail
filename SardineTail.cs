@@ -434,9 +434,6 @@ namespace SardineTail
         [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string), typeof(Il2CppSystem.Type))]
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset(type) ?? __result;
-        [HarmonyPostfix]
-        [HarmonyWrapSafe]
-        [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string))]
         static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
         [HarmonyPrefix]
@@ -447,6 +444,12 @@ namespace SardineTail
         [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
+
+        public static void ApplyPatches(Harmony hi)
+        {
+            hi.PatchAll(typeof(Hooks));
+            hi.Patch(typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)]), postfix: new HarmonyMethod(typeof(Hooks), nameof(Hooks.LoadAssetWithoutTypePostfix)){wrapTryCatch = true});
+        }
     }
     public partial class Plugin : BasePlugin
     {

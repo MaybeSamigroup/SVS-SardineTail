@@ -44,15 +44,18 @@ namespace SardineTail
         internal static ConfigEntry<bool> HardmodConversion;
         internal static ConfigEntry<bool> StructureConversion;
         private Harmony Patch;
-        public override void Load() =>
-            Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
-                .With(() => Instance = this)
-                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
-                .With(() => HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false))
-                .With(() => StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false))
-                .With(Paths.GameRootPath.InitializePackages)
-                .With(ModificationExtensions.Initialize)
-                .With(CategoryExtensions.Initialize);
+        public override void Load()
+        {
+            Patch = new Harmony($"{Name}.Hooks");
+            Hooks.ApplyPatches(Patch);
+            Instance = this;
+            DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
+            HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
+            StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false);
+            Paths.GameRootPath.InitializePackages();
+            ModificationExtensions.Initialize();
+            CategoryExtensions.Initialize();
+        }
         public override bool Unload() =>
             true.With(Patch.UnpatchSelf) && base.Unload();
     }

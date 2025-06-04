@@ -48,11 +48,14 @@ namespace SardineTail
         public const string Guid = $"{Process}.{Name}";
         internal static ConfigEntry<bool> DevelopmentMode;
         private Harmony Patch;
-        public override void Load() =>
-            Patch = Harmony.CreateAndPatchAll(typeof(Hooks), $"{Name}.Hooks")
-                .With(() => Instance = this)
-                .With(() => DevelopmentMode = Config.Bind("General", "Enable development package loading.", false))
-                .With(ModificationExtensions.Initialize);
+        public override void Load()
+        {
+            Patch = new Harmony($"{Name}.Hooks");
+            Hooks.ApplyPatches(Patch);
+            Instance = this;
+            DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
+            ModificationExtensions.Initialize();
+        }
         public override bool Unload() =>
             true.With(Patch.UnpatchSelf) && base.Unload();
     }
