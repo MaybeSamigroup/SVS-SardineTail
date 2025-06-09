@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Text.Encodings.Web;
 using System.Collections.Generic;
-using Fishbone;
+using CoastalSmell;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
 using KeysList = Il2CppSystem.Collections.Generic.List<ChaListDefine.KeyType>;
 using ValsList = Il2CppSystem.Collections.Generic.List<string>;
@@ -454,7 +454,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.0.2";
+        public const string Version = "1.0.3";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
     }

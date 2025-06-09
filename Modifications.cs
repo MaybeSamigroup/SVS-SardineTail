@@ -10,7 +10,7 @@ using CatNo = ChaListDefine.CategoryNo;
 using CharaLimit = Character.HumanData.LoadLimited.Flags;
 using CoordLimit = Character.HumanDataCoordinate.LoadLimited.Flags;
 using UniRx;
-using Fishbone;
+using CoastalSmell;
 using System.Text.Json.Serialization;
 
 namespace SardineTail

@@ -6,6 +6,7 @@ using System;
 using System.IO;
 using Character;
 using Fishbone;
+using CoastalSmell;
 
 namespace SardineTail
 {

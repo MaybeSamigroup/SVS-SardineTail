@@ -1,4 +1,3 @@
-using HarmonyLib;
 using System;
 using System.IO;
 using System.Linq;
@@ -9,7 +8,7 @@ using System.Collections.Generic;
 using Character;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
-using Fishbone;
+using CoastalSmell;
 using BepInEx;
 using Dependency = System.Tuple<System.Collections.Generic.HashSet<string>, Character.ListInfoBase>;
 using Dependencies = System.Tuple<System.Collections.Generic.HashSet<string>, System.Collections.Generic.IEnumerable<Character.ListInfoBase>>;
@@ -19,12 +18,12 @@ namespace SardineTail
     internal static partial class CategoryExtensions
     {
         internal static void Initialize() =>
-            Util.Hook<Manager.Game>(() => Plugin.HardmodConversion.Value.Maybe(() => Convert(new(), new())), () => { });
+            Util<Manager.Game>.Hook(() => Plugin.HardmodConversion.Value.Maybe(() => Convert(new(), new())), () => { });
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         static void Convert(HashSet<string> originalAB, List<Dependency> dependencies)
         {
-            All.Do(category =>
+            All.ForEach(category =>
             {
                 foreach (var (id, info) in Human.lstCtrl._table[category.Index])
                 {
@@ -32,7 +31,7 @@ namespace SardineTail
                     {
                         category.Entries.Where(entry => entry.Value is Vtype.Store)
                             .Select(entry => entry.Index).Select(info.GetString)
-                                .Where(path => !"0".Equals(path)).Do(path => originalAB.Add(path));
+                                .Where(path => !"0".Equals(path)).ForEach(path => originalAB.Add(path));
                     }
                     else if (category.Index.TranslateSoftMods(id) == null)
                     {
@@ -47,7 +46,7 @@ namespace SardineTail
             dependencies.Select(tuple => new Dependency(tuple.Item1.Except(originalAB).ToHashSet(), tuple.Item2))
                 .Aggregate<Dependency, IEnumerable<Dependencies>>([], Accumulate)
                 .GroupBy(GeneratePackageName, (name, deps) => name.Merge(deps))
-                .Do(tuple => ConvertPackage(tuple.Item1, tuple.Item2));
+                .ForEach(tuple => ConvertPackage(tuple.Item1, tuple.Item2));
         }
         static Tuple<string, Dependencies> Merge(this string name, IEnumerable<Dependencies> deps) =>
             new(name, deps.Aggregate((fst, snd) => new(fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2))));
@@ -70,7 +69,7 @@ namespace SardineTail
         static void CopyAssetBundles(this IEnumerable<string> paths, DirectoryInfo dest) =>
             paths.ToDictionary(path => Path.Combine(Paths.GameRootPath, "abdata", path), path => Path.Combine(dest.FullName, path))
                 .Where(entry => File.Exists(entry.Key))
-                .Do(entry => Directory.CreateDirectory(Path.GetDirectoryName(entry.Value)).With(() => File.Copy(entry.Key, entry.Value)));
+                .ForEach(entry => Directory.CreateDirectory(Path.GetDirectoryName(entry.Value)).With(() => File.Copy(entry.Key, entry.Value)));
         static void GenerateHardMigration(this IEnumerable<ListInfoBase> infos, DirectoryInfo path,
             Func<Category, IEnumerable<ListInfoBase>, DirectoryInfo, Dictionary<int, HardMigrationInfo>> process) =>
             infos.GroupBy(info => (CatNo)info.Category, (category, subinfos) => new Tuple<CatNo, Dictionary<int, HardMigrationInfo>>(
@@ -85,7 +84,7 @@ namespace SardineTail
             {
                 ModId = mods.Count() > 1 ? mods
                 .With(() => Plugin.Instance.Log.LogMessage($"Id:{id} conflict between:"))
-                .With(() => mods.Do(mod => Plugin.Instance.Log.LogMessage(mod))).First() : mods.First(),
+                .With(() => mods.ForEach(mod => Plugin.Instance.Log.LogMessage(mod))).First() : mods.First(),
                 Version = new Version(0, 0, 0)
             });
         static Dictionary<int, HardMigrationInfo> ConvertToCsv(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
