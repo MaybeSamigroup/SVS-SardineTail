@@ -30,7 +30,7 @@ namespace SardineTail
             Event.OnPreCharacterDeserialize +=
                 (data, limits, archive, current) => data.With(archive.Load(limits)).With(current.Save);
             Event.OnPreCoordinateDeserialize +=
-                (_, data, limits, archive) => archive.Load(limits)(data);
+                (_, data, limits, archive, _) => archive.Load(limits)(data);
         }
     }
     [BepInProcess(Process)]
