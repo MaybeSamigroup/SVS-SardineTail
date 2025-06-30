@@ -75,6 +75,6 @@
 	</Target>
 	<Target Name="Release" AfterTargets="Build">
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="GameRoot\BepinEx\plugins"/>
-		<ZipDirectory SourceDirectory="GameRoot" Overwrite="true" DestinationFile="$(GameName).zip"/>
+		<ZipDirectory SourceDirectory="GameRoot" Overwrite="true" DestinationFile="..\$(GameName).zip"/>
 	</Target>
 </Project>
