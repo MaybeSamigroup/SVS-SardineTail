@@ -1,5 +1,6 @@
 using HarmonyLib;
 using BepInEx.Unity.IL2CPP;
+using BepInEx.Configuration;
 using UnityEngine;
 using Character;
 using System;
@@ -22,6 +23,7 @@ using Mod = System.Tuple<ChaListDefine.KeyType, string>;
 using Resolution = System.Tuple<string, Character.ListInfoBase>;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
+using System.Reflection;
 
 namespace SardineTail
 {
@@ -429,33 +431,53 @@ namespace SardineTail
     }
     static partial class Hooks
     {
-        [HarmonyPostfix]
-        [HarmonyWrapSafe]
-        [HarmonyPatch(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), typeof(string), typeof(Il2CppSystem.Type))]
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset(type) ?? __result;
         static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
-        [HarmonyPrefix]
-        [HarmonyWrapSafe]
-        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.LoadAsset), typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string))]
-        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.LoadAssetAsync), typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string))]
-        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.GetLoadedAssetBundle), typeof(string), typeof(string))]
-        [HarmonyPatch(typeof(AssetBundleManager), nameof(AssetBundleManager.UnloadAssetBundle), typeof(string), typeof(bool), typeof(string), typeof(bool))]
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
-
-        public static void ApplyPatches(Harmony hi)
+        static Dictionary<string, MethodInfo[]> Postfixes = new()
         {
-            hi.PatchAll(typeof(Hooks));
-            hi.Patch(typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)]), postfix: new HarmonyMethod(typeof(Hooks), nameof(Hooks.LoadAssetWithoutTypePostfix)){wrapTryCatch = true});
-        }
+            [nameof(LoadAssetPostfix)] = [
+                typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0,
+                    [typeof(string), typeof(Il2CppSystem.Type)])
+            ],
+            [nameof(LoadAssetWithoutTypePostfix)] = [
+                typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0,
+                    [typeof(string)])
+            ],
+        };
+        static Dictionary<string, MethodInfo[]> Prefixes = new()
+        {
+            [nameof(LoadAssetPrefix)] = [
+                typeof(AssetBundleManager).GetMethod(nameof(AssetBundleManager.LoadAsset), 0,
+                    [typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string)]),
+                typeof(AssetBundleManager).GetMethod(nameof(AssetBundleManager.LoadAssetAsync), 0,
+                    [typeof(string), typeof(string), typeof(Il2CppSystem.Type), typeof(string)]),
+                typeof(AssetBundleManager).GetMethod(nameof(AssetBundleManager.GetLoadedAssetBundle), 0,
+                    [typeof(string), typeof(string)]),
+                typeof(AssetBundleManager).GetMethod(nameof(AssetBundleManager.UnloadAssetBundle), 0,
+                    [typeof(string), typeof(bool), typeof(string), typeof(bool)]),
+            ],
+        };
+        static void ApplyPrefixes(Harmony hi) =>
+            Prefixes.ForEach(entry => entry.Value.ForEach(method => hi.Patch(method, prefix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
+        static void ApplyPostfixes(Harmony hi) =>
+            Postfixes.ForEach(entry => entry.Value.ForEach(method => hi.Patch(method, postfix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
+        public static void ApplyPatches(Harmony hi) =>
+            hi.With(ApplyPrefixes).With(ApplyPostfixes);
     }
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.0.3";
+        public const string Version = "1.0.5";
+        public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
+        internal static ConfigEntry<bool> DevelopmentMode;
+        private Harmony Patch;
+        public override bool Unload() =>
+            true.With(Patch.UnpatchSelf) && base.Unload();
     }
 }

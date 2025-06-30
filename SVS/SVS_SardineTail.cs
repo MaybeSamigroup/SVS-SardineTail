@@ -39,16 +39,12 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Process = "SamabakeScramble";
-        public const string Guid = $"{Process}.{Name}";
         internal static readonly string ConversionsPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Guid, "hardmods");
-        internal static ConfigEntry<bool> DevelopmentMode;
         internal static ConfigEntry<bool> HardmodConversion;
         internal static ConfigEntry<bool> StructureConversion;
-        private Harmony Patch;
         public override void Load()
         {
-            Patch = new Harmony($"{Name}.Hooks");
-            Hooks.ApplyPatches(Patch);
+            Hooks.ApplyPatches(Patch = new Harmony($"{Name}.Hooks"));
             Instance = this;
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
@@ -57,8 +53,6 @@ namespace SardineTail
             ModificationExtensions.Initialize();
             CategoryExtensions.Initialize();
         }
-        public override bool Unload() =>
-            true.With(Patch.UnpatchSelf) && base.Unload();
     }
 
 }

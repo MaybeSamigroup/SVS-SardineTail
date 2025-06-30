@@ -34,11 +34,13 @@ namespace SardineTail
     }
     internal static partial class Hooks
     {
-        [HarmonyPostfix]
-        [HarmonyWrapSafe]
-        [HarmonyPatch(typeof(HumanManager.MaterialHelper), nameof(HumanManager.MaterialHelper.LoadPatchMaterial))]
         static void MaterialHelperLoadPatchMaterialPostfix(int gameID, string game) =>
             gameID.InitializeManifest(DigitalCraft.PathManager.Instance.GetMainManifestFromID(gameID), Path.Combine(game, ".."));
+        static Hooks() {
+            Postfixes[nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
+                typeof(HumanManager.MaterialHelper).GetMethod(nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
+            ];
+        }
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
@@ -46,9 +48,6 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";
-        public const string Guid = $"{Process}.{Name}";
-        internal static ConfigEntry<bool> DevelopmentMode;
-        private Harmony Patch;
         public override void Load()
         {
             Patch = new Harmony($"{Name}.Hooks");
@@ -57,7 +56,5 @@ namespace SardineTail
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             ModificationExtensions.Initialize();
         }
-        public override bool Unload() =>
-            true.With(Patch.UnpatchSelf) && base.Unload();
     }
 }
