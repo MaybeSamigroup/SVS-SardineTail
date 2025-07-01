@@ -1,10 +1,11 @@
 using HarmonyLib;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
 using Character;
 using Fishbone;
 using CoastalSmell;
@@ -32,15 +33,17 @@ namespace SardineTail
                 (_, data, limits, archive, current) => data.With(archive.Load(limits)).With(current.Save);
         }
     }
-    internal static partial class Hooks
+    static partial class Hooks
     {
         static void MaterialHelperLoadPatchMaterialPostfix(int gameID, string game) =>
             gameID.InitializeManifest(DigitalCraft.PathManager.Instance.GetMainManifestFromID(gameID), Path.Combine(game, ".."));
-        static Hooks() {
-            Postfixes[nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
+        static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
+        static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
+        {
+            [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
                 typeof(HumanManager.MaterialHelper).GetMethod(nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
-            ];
-        }
+            ],
+        };
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]

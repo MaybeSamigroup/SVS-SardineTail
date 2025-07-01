@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Text.Encodings.Web;
 using System.Collections.Generic;
+using System.Reflection;
 using CoastalSmell;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
 using KeysList = Il2CppSystem.Collections.Generic.List<ChaListDefine.KeyType>;
@@ -23,7 +24,6 @@ using Mod = System.Tuple<ChaListDefine.KeyType, string>;
 using Resolution = System.Tuple<string, Character.ListInfoBase>;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
-using System.Reflection;
 
 namespace SardineTail
 {
@@ -437,7 +437,7 @@ namespace SardineTail
             __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
-        static Dictionary<string, MethodInfo[]> Postfixes = new()
+        static Dictionary<string, MethodInfo[]> Postfixes => new()
         {
             [nameof(LoadAssetPostfix)] = [
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0,
@@ -448,7 +448,7 @@ namespace SardineTail
                     [typeof(string)])
             ],
         };
-        static Dictionary<string, MethodInfo[]> Prefixes = new()
+        static Dictionary<string, MethodInfo[]> Prefixes => new()
         {
             [nameof(LoadAssetPrefix)] = [
                 typeof(AssetBundleManager).GetMethod(nameof(AssetBundleManager.LoadAsset), 0,
@@ -462,16 +462,18 @@ namespace SardineTail
             ],
         };
         static void ApplyPrefixes(Harmony hi) =>
-            Prefixes.ForEach(entry => entry.Value.ForEach(method => hi.Patch(method, prefix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
+            Prefixes.Concat(SpecPrefixes).ForEach(entry => entry.Value.ForEach(method =>
+                hi.Patch(method, prefix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
         static void ApplyPostfixes(Harmony hi) =>
-            Postfixes.ForEach(entry => entry.Value.ForEach(method => hi.Patch(method, postfix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
+            Postfixes.Concat(SpecPostfixes).ForEach(entry => entry.Value.ForEach(method =>
+                hi.Patch(method, postfix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
         public static void ApplyPatches(Harmony hi) =>
             hi.With(ApplyPrefixes).With(ApplyPostfixes);
     }
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.0.4";
+        public const string Version = "1.0.5";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

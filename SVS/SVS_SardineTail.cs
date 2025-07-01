@@ -4,6 +4,8 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Reflection;
 using Character;
 using Fishbone;
 using CoastalSmell;
@@ -32,6 +34,11 @@ namespace SardineTail
             Event.OnPreCoordinateDeserialize +=
                 (_, data, limits, archive, _) => archive.Load(limits)(data);
         }
+    }
+    static partial class Hooks
+    {
+        static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
+        static Dictionary<string, MethodInfo[]> SpecPostfixes => new();
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
