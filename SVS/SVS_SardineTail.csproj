@@ -42,6 +42,18 @@
 			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.AssetBundleModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="UnityEngine.UI">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.UI.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UnityEngine.TextRenderingModule">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.TextRenderingModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Unity.TextMeshPro">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Unity.TextMeshPro.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
 		<Reference Include="UnityEngine.ImageConversionModule">
 			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
 			<Private>False</Private>

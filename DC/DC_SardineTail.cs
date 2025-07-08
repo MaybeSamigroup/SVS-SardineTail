@@ -6,9 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
 using Character;
 using Fishbone;
 using CoastalSmell;
+using CatNo = ChaListDefine.CategoryNo;
+using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
@@ -28,10 +31,27 @@ namespace SardineTail
         static internal void Initialize()
         {
             Event.OnPreCharacterDeserialize +=
-                (data, archive) => archive.Load(data);
+                (data, archive) => CharaMods.Load(archive)
+                    .Apply(data.With(ModPackageExtensions.CaptureGameTag));
             Event.OnPreCoordinateDeserialize +=
-                (_, data, limits, archive, current) => data.With(archive.Load(limits)).With(current.Save);
+                (_, data, limits, archive, current) => CoordMods
+                    .ToMods(data.With(CoordMods.Load(archive).Apply(limits))).Save(current);
         }
+    }
+    internal static partial class ModPackageExtensions
+    {
+        static string GameTag;
+        internal static void CaptureGameTag(HumanData data) =>
+            GameTag = data.Tag;
+        internal static UnityEngine.Object ToBodyPrefab() => OverrideBodyId < 100000000 ? null :
+            ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, OverrideBodyId),
+                Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
+        internal static UnityEngine.Object ToBodyTexture() => OverrideBodyId < 100000000 ? null :
+            ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, OverrideBodyId),
+                Ktype.MainTexAB, Ktype.MainTex, Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>());
+        internal static UnityEngine.Object ToBodyShapeAnime() => OverrideBodyId < 100000000 ? null :
+            ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, OverrideBodyId),
+                Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
     }
     static partial class Hooks
     {
@@ -41,7 +61,8 @@ namespace SardineTail
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
         {
             [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
-                typeof(HumanManager.MaterialHelper).GetMethod(nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
+                typeof(HumanManager.MaterialHelper).GetMethod(
+                    nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
             ],
         };
     }

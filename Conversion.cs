@@ -33,7 +33,7 @@ namespace SardineTail
                             .Select(entry => entry.Index).Select(info.GetString)
                                 .Where(path => !"0".Equals(path)).ForEach(path => originalAB.Add(path));
                     }
-                    else if (category.Index.TranslateSoftMods(id) == null)
+                    else if (category.Index.FromId(id) == null)
                     {
                         dependencies.Add(new(category.Entries
                             .Where(entry => entry.Value is Vtype.Store)

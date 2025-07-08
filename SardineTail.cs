@@ -7,12 +7,12 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Unicode;
-using System.Text.Encodings.Web;
 using System.Collections.Generic;
 using System.Reflection;
 using CoastalSmell;
+using Fishbone;
+using CharaLimit = Character.HumanData.LoadLimited.Flags;
+using CoordLimit = Character.HumanDataCoordinate.LoadLimited.Flags;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
 using KeysList = Il2CppSystem.Collections.Generic.List<ChaListDefine.KeyType>;
 using ValsList = Il2CppSystem.Collections.Generic.List<string>;
@@ -27,6 +27,121 @@ using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
+    public partial class ModInfo
+    {
+        public string PkgId { get; set; }
+        public string ModId { get; set; }
+        public CatNo Category { get; set; }
+        public Version PkgVersion { get; set; }
+    }
+    public partial class HairsMods
+    {
+        public ModInfo HairGloss { get; set; }
+        public Dictionary<ChaFileDefine.HairKind, ModInfo> Hairs { get; set; }
+        internal partial void Apply(HumanDataHair data);
+        internal static Func<HumanDataHair, HairsMods> ToMods;
+    }
+    public partial class ClothMods
+    {
+        public ModInfo Part { get; set; }
+        public Dictionary<int, ModInfo> Paints { get; set; }
+        public Dictionary<int, ModInfo> Patterns { get; set; }
+        internal partial void Apply(ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data);
+        internal static Func<HumanDataClothes, Dictionary<ChaFileDefine.ClothesKind, ClothMods>> ToMods;
+    }
+    public partial class AccessoryMods
+    {
+        public ModInfo Part { get; set; }
+        public Dictionary<int, ModInfo> Patterns { get; set; }
+        internal partial void Apply(HumanDataAccessory.PartsInfo data);
+        internal static Func<HumanDataAccessory, Dictionary<int, AccessoryMods>> ToMods;
+    }
+    public partial class FaceMakeupMods
+    {
+        public ModInfo Eyeshadow { get; set; }
+        public ModInfo Cheek { get; set; }
+        public ModInfo Lip { get; set; }
+        public Dictionary<int, ModInfo> Paints { get; set; }
+        public Dictionary<int, ModInfo> Layouts { get; set; }
+        internal partial void Apply(HumanDataFaceMakeup data);
+        internal static Func<HumanDataFaceMakeup, FaceMakeupMods> ToMods;
+    }
+    public partial class BodyMakeupMods
+    {
+        public ModInfo Nail { get; set; }
+        public ModInfo NailLeg { get; set; }
+        public Dictionary<int, ModInfo> Paints { get; set; }
+        public Dictionary<int, ModInfo> Layouts { get; set; }
+        internal partial void Apply(HumanDataBodyMakeup data);
+        internal static Func<HumanDataBodyMakeup, BodyMakeupMods> ToMods;
+    }
+    [BonesToStuck(Plugin.Name, "modifications.json")]
+    public partial class CoordMods
+    {
+        public HairsMods Hairs { get; set; }
+        public Dictionary<ChaFileDefine.ClothesKind, ClothMods> Clothes { get; set; }
+        public Dictionary<int, AccessoryMods> Accessories { get; set; }
+        public BodyMakeupMods BodyMakeup { get; set; }
+        public FaceMakeupMods FaceMakeup { get; set; }
+        internal partial void Apply(HumanDataCoordinate data);
+        internal partial Action<HumanDataCoordinate> Apply(CoordLimit limits);
+        internal partial void Save(ZipArchive archive);
+        internal static Func<HumanDataCoordinate, CoordMods> ToMods;
+        internal static Func<ZipArchive, CoordMods> Load;
+    }
+    [BonesToStuck(Plugin.Guid, "modifications.json")]
+    public class LegacyCoordMods : CoordMods { }
+    public partial class EyeMods
+    {
+        public ModInfo Eye { get; set; }
+        public ModInfo Gradation { get; set; }
+        public Dictionary<int, ModInfo> Highlights { get; set; }
+        internal partial void Apply(HumanDataFace.PupilInfo data);
+        internal static Func<HumanDataFace.PupilInfo, EyeMods> ToMods;
+    }
+    public partial class FaceMods
+    {
+        public ModInfo Head { get; set; }
+        public ModInfo Detail { get; set; }
+        public ModInfo Mole { get; set; }
+        public ModInfo MoleLayout { get; set; }
+        public ModInfo Nose { get; set; }
+        public ModInfo LipLine { get; set; }
+        public ModInfo Eyebrows { get; set; }
+        public ModInfo Eyelid { get; set; }
+        public ModInfo EyelineDown { get; set; }
+        public ModInfo EyelineUp { get; set; }
+        public ModInfo EyeWhite { get; set; }
+        public Dictionary<int, EyeMods> Eyes { get; set; }
+        internal partial void Apply(HumanDataFace data);
+        internal static Func<HumanDataFace, FaceMods> ToMods;
+    }
+    public partial class BodyMods
+    {
+        public ModInfo Detail { get; set; }
+        public ModInfo Sunburn { get; set; }
+        public ModInfo Nip { get; set; }
+        public ModInfo Underhair { get; set; }
+        internal partial void Apply(HumanDataBody data);
+        internal static Func<HumanDataBody, BodyMods> ToMods;
+    }
+    [BonesToStuck(Plugin.Name, "modifications.json")]
+    public partial class CharaMods
+    {
+        public ModInfo Figure { get; set;  }
+        public FaceMods Face { get; set; }
+        public BodyMods Body { get; set; }
+        public ModInfo Graphic { get; set; }
+        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; }
+        internal partial void Apply(HumanData data);
+        internal partial Action<HumanData> Apply(CharaLimit limits);
+        internal partial void Save(ZipArchive archive);
+        internal static Func<HumanData, CharaMods> ToMods;
+        internal static Func<ZipArchive, CharaMods> Load;
+    }
+    [BonesToStuck(Plugin.Guid, "modifications.json")]
+    public class LegacyCharaMods : CharaMods { }
+
     enum Vtype { Name, Store, Asset, Image, Text }
     struct Entry
     {
@@ -180,7 +295,7 @@ namespace SardineTail
         internal DirectoryCollector(Category category, string pkgId) : base(category, pkgId) { }
         Mods Process(IEnumerable<string> paths, FileInfo entry) =>
             "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(entry.OpenRead().TryWith(stream => stream.TryParse<Values>()))
+                ? Index.Collect(entry.OpenRead().Parse<Values>())
                 : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<PkgEntry> entries) =>
            Index.Resolve(PkgId, paths, mods) switch
@@ -199,7 +314,7 @@ namespace SardineTail
         internal ArchiveCollector(Category index, string pkgId) : base(index, pkgId) { }
         Mods Process(IEnumerable<string> paths, ZipArchiveEntry entry) =>
             "values.json".Equals(entry.Name, StringComparison.OrdinalIgnoreCase)
-                ? Index.Collect(entry.Open().TryWith(stream => stream.TryParse<Values>()))
+                ? Index.Collect(entry.Open().Parse<Values>())
                 : Index.Collect(paths, entry.Name);
         IEnumerable<Resolution> Verify(IEnumerable<string> paths, Mods mods, IEnumerable<ZipEntry> entries) =>
            Index.Resolve(PkgId, paths, mods) switch
@@ -251,9 +366,9 @@ namespace SardineTail
                     Category = entry.Key,
                 })));
         internal void LoadHardMigration(Stream stream) =>
-            LoadHardMigration(stream.TryParse<Dictionary<CatNo, Dictionary<int, HardMigrationInfo>>>());
+            LoadHardMigration(stream.Parse<Dictionary<CatNo, Dictionary<int, HardMigrationInfo>>>());
         internal void LoadSoftMigration(Stream stream) =>
-            SoftMigrations = stream.TryParse<Dictionary<string, Dictionary<string, string>>>()
+            SoftMigrations = stream.Parse<Dictionary<string, Dictionary<string, string>>>()
                 .Where(item => Version.TryParse(item.Key, out var _))
                 .ToDictionary(item => Version.Parse(item.Key), item => item.Value);
         void NotifyMissingModInfo(ModInfo info) =>
@@ -288,12 +403,12 @@ namespace SardineTail
             File.Exists(Path.Combine(PkgPath, path)) ? AssetBundle.LoadFromFile(Path.Combine(PkgPath, path)) : new AssetBundle();
         internal override Texture2D LoadTexture(string path) =>
             File.Exists(Path.Combine(PkgPath, path)) ? ToTexture(File.ReadAllBytes(Path.Combine(PkgPath, path))) : null;
+        void LoadIfExists(string path, Action<Stream> action) =>
+            File.Exists(path).Maybe(() => action(File.OpenRead(path)));
         void LoadHardMigration() =>
-            Path.Combine(PkgPath, HARD_MIGRATION).With(path =>
-                File.Exists(path).Maybe(() => File.OpenRead(path).TryWith(LoadHardMigration)));
+            LoadIfExists(Path.Combine(PkgPath, HARD_MIGRATION), LoadHardMigration);
         void LoadSoftMigration() =>
-            Path.Combine(PkgPath, SOFT_MIGRATION).With(path =>
-                File.Exists(path).Maybe(() => File.OpenRead(path).TryWith(LoadSoftMigration)));
+            LoadIfExists(Path.Combine(PkgPath, SOFT_MIGRATION), LoadSoftMigration); 
         void LoadCsvFile(Category category, string path) =>
             File.Exists(path).Maybe(() => category.LoadCsvValues(PkgId, File.ReadAllText(path))
                 .Do(value => Register(category, value.Item1, value.Item2)));
@@ -319,61 +434,41 @@ namespace SardineTail
             entry != null ? AssetBundle.LoadFromMemory(ToBytes(entry)) : new AssetBundle();
         Texture2D LoadTexture(ZipArchiveEntry entry) =>
             entry != null ? ToTexture(ToBytes(entry)) : null;
-        byte[] ToBytes(ZipArchiveEntry entry) =>
-            new BinaryReader(entry.Open()).TryWith(stream => stream.ReadBytes((int)entry.Length));
+        void LoadIfExists(ZipArchiveEntry entry, Action<Stream> action) =>
+            (entry != null).Maybe(() => action(entry.Open()));
         void LoadHardMigration(ZipArchive archive) =>
-            archive.GetEntry(HARD_MIGRATION).With(entry => (null != entry)
-                .Maybe(() => entry.Open().TryWith(LoadHardMigration)));
+            LoadIfExists(archive.GetEntry(HARD_MIGRATION), LoadHardMigration);
         void LoadSoftMigration(ZipArchive archive) =>
-            archive.GetEntry(SOFT_MIGRATION).With(entry => (null != entry)
-                .Maybe(() => entry.Open().TryWith(LoadSoftMigration)));
+            LoadIfExists(archive.GetEntry(SOFT_MIGRATION), LoadHardMigration);
         void LoadCsvFile(Category category, ZipArchiveEntry entry) =>
             (entry != null).Maybe(() => category.LoadCsvValues(PkgId, System.Text.Encoding.UTF8.GetString(ToBytes(entry)))
                 .Do(value => Register(category, value.Item1, value.Item2)));
         void LoadCsvFiles(ZipArchive archive) =>
             CategoryExtensions.All.Do(category => LoadCsvFile(category, archive.GetEntry($"{category.Index}.csv")));
+        byte[] ToBytes(ZipArchiveEntry entry) =>
+            EntryToBytes((int)entry.Length).ApplyDisposable(entry.Open())
+                .Try(Plugin.Instance.Log.LogMessage, out var value) ? value : [];
+        Func<Stream, byte[]> EntryToBytes(int length) =>
+            stream => new BinaryReader(stream).ReadBytes(length);
         internal override void Initialize() =>
-            ZipFile.OpenRead(ArchivePath).TryWith(archive => archive
-                .With(LoadHardMigration).With(LoadSoftMigration).With(LoadCsvFiles)
+            F.ApplyDisposable(Initialize, ZipFile.OpenRead(ArchivePath)).Try(Plugin.Instance.Log.LogMessage);
+        internal void Initialize(ZipArchive archive) =>
+             archive.With(LoadHardMigration).With(LoadSoftMigration).With(LoadCsvFiles)
                 .Categories().Do(entry => new ArchiveCollector(entry.Key, PkgId)
-                    .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2))));
+                    .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2)));
     }
-    internal static class ModPackageExtensions
+    internal static partial class ModPackageExtensions
     {
-        internal static void TryWith<I>(this I input, Action<I> sideeffect) where I : IDisposable =>
-            input.TryWith(input => true.With(() => sideeffect(input)));
-        internal static O TryWith<I, O>(this I input, Func<I, O> sideeffect) where I : IDisposable
-        {
-            using (input) { return sideeffect(input); }
-        }
-        internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
-        {
-            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true
-        };
-        internal static O TryParse<O>(this Stream input) where O : new()
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<O>(input, JsonOption);
-            }
-            catch (Exception e)
-            {
-                Plugin.Instance.Log.LogMessage("Failed to parse json file:");
-                Plugin.Instance.Log.LogMessage(e.StackTrace);
-                return new();
-            }
-        }
+        internal static T Parse<T>(this Stream stream) where T : new() =>
+            Json<T>.Deserialize.ApplyDisposable(stream)
+                .Try(Plugin.Instance.Log.LogMessage, out var value) ? value : new();
         internal static bool ResourceExists(this string pkgId, string path) =>
             Packages[pkgId].ResourceExists(path);
-        internal static ModInfo TranslateSoftMods(this CatNo categoryNo, int id) =>
-            IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
-        internal static ModInfo TranslateHardMods(this CatNo categoryNo, int id) =>
-            HardMigrations.TryGetValue(categoryNo, out var mods) ? mods.GetValueOrDefault(id) : null;
         static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod = new();
         internal static void RegisterIdToMod(this CatNo categoryNo, int id, ModInfo mod) =>
             (IdToMod[categoryNo] = IdToMod.TryGetValue(categoryNo, out var mods) ? mods : new()).Add(id, mod);
+        internal static ModInfo FromId(this CatNo categoryNo, int id) =>
+            IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
         static IEnumerable<Version> ToVersion(this string[] items) =>
             items.Length switch
             {
@@ -396,21 +491,21 @@ namespace SardineTail
                 .SelectMany(ArchiveToPackage).Concat(Directory.GetDirectories(path).SelectMany(ArchivePackages));
         static IEnumerable<ModPackage> DirectoryPackages(string path) =>
             Plugin.DevelopmentMode.Value ?
-                Directory.GetDirectories(Path.Combine(path, "UserData", "plugins", Plugin.Guid, "packages"))
-                    .SelectMany(DirectoryToPackage(path)) : [];
+                Directory.GetDirectories(path).SelectMany(DirectoryToPackage(path)) : [];
         static bool IsArchivePackage(string path) =>
             ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
-        static Dictionary<string, ModPackage> Packages = new ();
+        static Dictionary<string, ModPackage> Packages = new();
         internal static Dictionary<CatNo, Dictionary<int, ModInfo>> HardMigrations = new();
         internal static void Register(CatNo categoryNo, int id, ModInfo info) =>
             (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
-        internal static int ToId(this ModInfo info, CatNo categoryNo, int id) =>
+        internal static int ToId(this CatNo categoryNo, ModInfo info, int id) =>
             HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod)
                 ? Packages[mod.PkgId].ToId(mod, id) : info == null ? id
                 : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.ToId(info, id)
                 : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
         internal static void InitializePackages(this string path) =>
-            ArchivePackages(Path.Combine(path, "sardines")).Concat(DirectoryPackages(path)).GroupBy(item => item.PkgId)
+            ArchivePackages(Path.Combine(path, "sardines"))
+                .Concat(DirectoryPackages(Path.Combine(path, "UserData", "plugins", Plugin.Guid, "packages"))).GroupBy(item => item.PkgId)
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
                 .Select(entry => Packages[entry.Key] = entry.Value)
                 .Do(item => item.Initialize());
@@ -428,13 +523,42 @@ namespace SardineTail
                 3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
                 _ => null
             };
+        internal static bool BypassFigure = false;
+        internal static int OverrideBodyId = -1;
+        static UnityEngine.Object ToBodyAsset(string bundle, string asset, Il2CppSystem.Type type) =>
+            Plugin.AssetBundle.Equals(bundle) ? asset.Split(':').ToAsset(type) : null;
+        static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
+            info != null && info.TryGetValue(ab, out var bundle) && info.TryGetValue(data, out var asset) ? ToBodyAsset(bundle, asset, type) : null;
     }
     static partial class Hooks
     {
+        const string BodyPrefabAB = "chara/body/body_00.unity3d";
+        const string BodyPrefabM = "p_cm_sv_body_00";
+        const string BodyPrefabF = "p_cf_sv_body_00";
+        const string BodyTextureAB = "chara/body/bo_body_000_00.unity3d";
+        const string BodyTexture = "cf_body_00_t";
+        const string BodyShapeAnimeAB = "list/customshape.unity3d";
+        const string BodyShapeAnime = "cf_anmShapeBody";
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
-            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset(type) ?? __result;
+            __result = (__instance.name, name) switch
+            {
+                (Plugin.AssetBundle, _) => name.Split(':').ToAsset(type),
+                (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => ModPackageExtensions.ToBodyPrefab() ?? __result,
+                (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
+                (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
+                _ => null
+            } ?? __result;
         static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
-            __result = !Plugin.AssetBundle.Equals(__instance.name) ? __result : name.Split(':').ToAsset() ?? __result;
+            __result = (__instance.name, name) switch
+            {
+                (Plugin.AssetBundle, _) => name.Split(':').ToAsset(),
+                (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => ModPackageExtensions.ToBodyPrefab() ?? __result,
+                (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
+                (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
+                _ => null
+            } ?? __result;
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
         static Dictionary<string, MethodInfo[]> Postfixes => new()
@@ -473,7 +597,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.0.5";
+        public const string Version = "1.1.0";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
