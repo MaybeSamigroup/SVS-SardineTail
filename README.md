@@ -8,8 +8,8 @@ Fundamental plugin to develop soft mod for SamabakeScramble and modification loa
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
-- [Fishbone](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 2.1.0 or later
+- [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
+  - 2.1.1/1.0.2 or later
 
 Confirmed working under SamabakeScramble 1.1.6 and DigitalCraft 2.0.0
 
