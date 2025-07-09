@@ -525,10 +525,6 @@ namespace SardineTail
             };
         internal static bool BypassFigure = false;
         internal static int OverrideBodyId = -1;
-        static UnityEngine.Object ToBodyAsset(string bundle, string asset, Il2CppSystem.Type type) =>
-            Plugin.AssetBundle.Equals(bundle) ? asset.Split(':').ToAsset(type) : null;
-        static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
-            info != null && info.TryGetValue(ab, out var bundle) && info.TryGetValue(data, out var asset) ? ToBodyAsset(bundle, asset, type) : null;
     }
     static partial class Hooks
     {
@@ -539,8 +535,13 @@ namespace SardineTail
         const string BodyTexture = "cf_body_00_t";
         const string BodyShapeAnimeAB = "list/customshape.unity3d";
         const string BodyShapeAnime = "cf_anmShapeBody";
+        static bool PreventRedirect = false;
+        static void EnableRedirect() =>
+            PreventRedirect = false;
+        static void DisableRedirect() =>
+            PreventRedirect = true;
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
-            __result = (__instance.name, name) switch
+            __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
                 (Plugin.AssetBundle, _) => name.Split(':').ToAsset(type),
                 (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
@@ -548,9 +549,9 @@ namespace SardineTail
                 (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
                 _ => null
-            } ?? __result;
+            } ?? __result).With(EnableRedirect);
         static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
-            __result = (__instance.name, name) switch
+            __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
                 (Plugin.AssetBundle, _) => name.Split(':').ToAsset(),
                 (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
@@ -558,7 +559,7 @@ namespace SardineTail
                 (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
                 _ => null
-            } ?? __result;
+            } ?? __result).With(EnableRedirect);
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>
             manifestAssetBundleName = !Plugin.AssetBundle.Equals(assetBundleName) ? manifestAssetBundleName : "sv_abdata";
         static Dictionary<string, MethodInfo[]> Postfixes => new()
@@ -597,7 +598,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

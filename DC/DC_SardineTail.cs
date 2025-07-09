@@ -43,6 +43,18 @@ namespace SardineTail
         static string GameTag;
         internal static void CaptureGameTag(HumanData data) =>
             GameTag = data.Tag;
+        internal static LoadedAssetBundle ToAssetBundle(string bundle)
+        {
+            DigitalCraft.PathManager.Instance
+                .GetManifestAndGamePath(ref GameTag, ref bundle, out var manifest, out var path);
+            return AssetBundleManager.LoadAssetBundle(ref path, bundle, manifest);
+        }
+        static UnityEngine.Object ToBodyAsset(string bundle, string asset, Il2CppSystem.Type type) =>
+            Plugin.AssetBundle.Equals(bundle) ? asset.Split(':').ToAsset(type) : ToAssetBundle(bundle).Bundle.LoadAsset(asset, type);
+        static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
+            info != null &&
+                info.TryGetValue(ab, out var bundle) &&
+                info.TryGetValue(data, out var asset) ? ToBodyAsset(bundle, asset, type) : null;
         internal static UnityEngine.Object ToBodyPrefab() => OverrideBodyId < 100000000 ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, OverrideBodyId),
                 Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
