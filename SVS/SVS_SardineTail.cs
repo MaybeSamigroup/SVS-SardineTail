@@ -47,16 +47,16 @@ namespace SardineTail
             Event.OnPreCoordinateDeserialize +=
                 (_, data, limits, archive, current) => CoordMods
                     .ToMods(data.With(CoordMods.Load(archive).Apply(limits))).Save(current);
-            Util<HumanCustom>.Hook(ModPackageExtensions.InitializeOverrideBody, F.DoNothing); 
+            Util<HumanCustom>.Hook(Extensions.InitializeOverrideBody, F.DoNothing);
             Util<CategoryEdit>.Hook(BodyChoice.Initialize, F.DoNothing);
         }
     }
-    internal static partial class ModPackageExtensions
+    internal static partial class Extensions
     {
         internal static void InitializeOverrideBody() =>
             OverrideBodyId = HumanCustom.Instance.IsMale() ? 0 : 1;
         static UnityEngine.Object ToBodyAsset(string bundle, string asset, string manifest, Il2CppSystem.Type type) =>
-            Plugin.AssetBundle.Equals(bundle) ? asset.Split(':').ToAsset(type) :
+            Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToAsset(asset.Split(':'), type) :
                 AssetBundleManager.LoadAssetBundle(bundle, manifest).Bundle.LoadAsset(asset, type);
         static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
             info != null &&
@@ -88,7 +88,7 @@ namespace SardineTail
         Dictionary<string, int> NameToId;
         ChoiceList Options;
         TextMeshProUGUI Current;
-        BodyChoice (Dictionary<int, string> idToName) =>
+        BodyChoice(Dictionary<int, string> idToName) =>
             IdToName = idToName;
         BodyChoice(Dictionary<string, int> nameToId) : this(nameToId.ToDictionary(entry => entry.Value, entry => entry.Key)) =>
             (NameToId, Options) = (nameToId, new ChoiceList(300, 24, "Bodies", nameToId.OrderBy(entry => entry.Value).Select(entry => entry.Key).ToArray()));
@@ -115,9 +115,9 @@ namespace SardineTail
         Action<Toggle> ObserveValueChanged =>
             ui => ui.OnValueChangedAsObservable().Subscribe(OnValueChanged);
         Action<bool> OnValueChanged =>
-            value => (!value && ModPackageExtensions.OverrideBodyId != NameToId[Current.text]).Maybe(SetBody(NameToId[Current.text]));
+            value => (!value && Extensions.OverrideBodyId != NameToId[Current.text]).Maybe(SetBody(NameToId[Current.text]));
         Action SetBody(int id) => () =>
-            ((ModPackageExtensions.OverrideBodyId, ModPackageExtensions.BypassFigure) = (id, true)).With(Event.HumanCustomReload);
+            ((Extensions.OverrideBodyId, Extensions.BypassFigure) = (id, true)).With(Event.HumanCustomReload);
         Action GetBody(int id) => () =>
             (id != NameToId[Current.text]).Maybe(F.Apply(Current.SetText, IdToName[id], true) + Util.DoNextFrame.Apply(SetBody(id)));
         Action<GameObject> ObserveParentEnable(GameObject parent) =>
@@ -127,11 +127,11 @@ namespace SardineTail
         Action<Unit> OnEnableParent(GameObject go) =>
             _ => go.SetActive(NowCategory is (1, 0) or (1, 9));
         void OnDeserialize(Human human, HumanData.LoadLimited.Flags limits, ZipArchive archive, ZipArchive storage) =>
-            ModPackageExtensions.BypassFigure = ModPackageExtensions.BypassFigure
-                ? false : false.With(GetBody(ModPackageExtensions.OverrideBodyId));
+            Extensions.BypassFigure = Extensions.BypassFigure
+                ? false : false.With(GetBody(Extensions.OverrideBodyId));
         void Dispose() =>
             Event.OnPostCharacterDeserialize -= OnDeserialize;
-        }
+    }
     static partial class Hooks
     {
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
@@ -153,7 +153,7 @@ namespace SardineTail
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
             StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false);
-            Paths.GameRootPath.InitializePackages();
+            ModPackage.InitializePackages(Paths.GameRootPath);
             ModificationExtensions.Initialize();
             CategoryExtensions.Initialize();
         }

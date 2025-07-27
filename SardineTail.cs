@@ -27,12 +27,22 @@ using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
-    public partial class ModInfo
+    public class ModTranslate
+    {
+        public Func<ModInfo, int, int> ToId;
+        public Func<int, ModInfo> FromId;
+        internal ModTranslate(Func<ModInfo, int, int> to, Func<int, ModInfo> from) =>
+            (ToId, FromId) = (to, from);
+    }
+    public class ModInfo
     {
         public string PkgId { get; set; }
         public string ModId { get; set; }
         public CatNo Category { get; set; }
         public Version PkgVersion { get; set; }
+        public static Dictionary<CatNo, ModTranslate> Translate =
+            Enum.GetValues<CatNo>().ToDictionary(categoryNo => categoryNo,
+                categoryNo => new ModTranslate(ModPackage.ToId.Apply(categoryNo), ModPackage.FromId.Apply(categoryNo)));
     }
     public partial class HairsMods
     {
@@ -194,9 +204,9 @@ namespace SardineTail
                         .Do(child => values[child] = $"{pkgId}:{path}:{values[child]}"))),
                 Plugin.AssetBundle => Plugin.AssetBundle
                     .With(() => entry.Children
-                        .Where(child => pkgId.ResourceExists(values[child]))
+                        .Where(child => ModPackage.Exists(pkgId, values[child]))
                         .Do(child => values[child] = $"{pkgId}:{values[child]}")),
-                var path when pkgId.ResourceExists(path) => Plugin.AssetBundle
+                var path when ModPackage.Exists(pkgId, path) => Plugin.AssetBundle
                     .With(() => entry.Children.Do(child => values[child] = $"{pkgId}:{path}:{values[child]}")),
                 var path => path
             };
@@ -333,7 +343,7 @@ namespace SardineTail
         public string ModId { get; set; }
         public Version Version { get; set; }
     }
-    internal abstract class ModPackage
+    internal abstract partial class ModPackage
     {
         internal const string HARD_MIGRATION = "hardmig.json";
         internal const string SOFT_MIGRATION = "softmig.json";
@@ -348,7 +358,7 @@ namespace SardineTail
         internal void Register(Category category, string modId, ListInfoBase info) =>
             ModToId.TryAdd(modId, info.Id).Either(
                 () => Plugin.Instance.Log.LogMessage($"duplicate mod id detected. {PkgId}:{modId}"),
-                () => category.Index.RegisterIdToMod(info.With(category.RegisterMod()).Id, new ModInfo
+                () => RegisterIdToMod(category.Index, info.With(category.RegisterMod()).Id, new ModInfo
                 {
                     PkgVersion = PkgVersion,
                     PkgId = PkgId,
@@ -358,7 +368,7 @@ namespace SardineTail
             );
         void LoadHardMigration(Dictionary<CatNo, Dictionary<int, HardMigrationInfo>> info) =>
             info.Do(entry => entry.Value.Do(subentry =>
-                ModPackageExtensions.Register(entry.Key, subentry.Key, new ModInfo()
+                RegisterHardMigration(entry.Key, subentry.Key, new ModInfo()
                 {
                     PkgVersion = subentry.Value.Version,
                     PkgId = PkgId,
@@ -373,7 +383,7 @@ namespace SardineTail
                 .ToDictionary(item => Version.Parse(item.Key), item => item.Value);
         void NotifyMissingModInfo(ModInfo info) =>
             Plugin.Instance.Log.LogMessage($"mod info missing:{info.PkgId}:{info.ModId}:{info.PkgVersion}");
-        internal int ToId(ModInfo info, int oldId) =>
+        internal int TranslateId(ModInfo info, int oldId) =>
             ModToId.TryGetValue(SoftMigration(info), out var newId) ? newId : oldId.With(() => NotifyMissingModInfo(info));
         internal readonly Dictionary<string, AssetBundle> Cache = new();
         internal void Unload() =>
@@ -392,8 +402,38 @@ namespace SardineTail
         internal abstract bool ResourceExists(string path);
         internal abstract AssetBundle LoadAssetBundle(string path);
         internal abstract Texture2D LoadTexture(string path);
+        internal static Func<string, string, bool> Exists =
+            (pkgId, path) => Packages.TryGetValue(pkgId, out var pkg) && pkg.ResourceExists(path);
+        internal static Func<CatNo, int, ModInfo> FromId =
+            (categoryNo, id) => IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
+        internal static Func<CatNo, ModInfo, int, int> ToId =
+            (categoryNo, info, id) =>
+                HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var soft)
+                    ? Packages[soft.PkgId].TranslateId(soft, id) : info == null ? id
+                    : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
+                    : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
+        internal static void InitializePackages(string path) =>
+            ArchivePackage.Collect(Path.Combine(path, "sardines"))
+                .Concat(DirectoryPackage.Collect(Path.Combine(path, "UserData", "plugins", Plugin.Guid, "packages"))).GroupBy(item => item.PkgId)
+                .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
+                .Select(entry => Packages[entry.Key] = entry.Value)
+                .ForEach(item => item.Initialize());
+        internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
+            items.Length switch
+            {
+                2 => Packages.TryGetValue(items[0], out var modPkg) ? modPkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
+                3 => Packages.TryGetValue(items[0], out var modPkg) ? modPkg.GetAsset(items[1], items[2], type) : null,
+                _ => null
+            };
+        internal static UnityEngine.Object ToAsset(string[] items) =>
+            items.Length switch
+            {
+                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
+                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
+                _ => null
+            };
     }
-    internal class DirectoryPackage : ModPackage
+    internal partial class DirectoryPackage : ModPackage
     {
         string PkgPath;
         internal DirectoryPackage(string pkgId, Version version, string path) : base(pkgId, version) => PkgPath = path;
@@ -420,7 +460,7 @@ namespace SardineTail
                 .Categories().Do(entry => new DirectoryCollector(entry.Key, PkgId)
                     .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2)));
     }
-    internal class ArchivePackage : ModPackage
+    internal partial class ArchivePackage : ModPackage
     {
         string ArchivePath;
         internal ArchivePackage(string pkgId, Version version, string path) : base(pkgId, version) => ArchivePath = path;
@@ -457,72 +497,11 @@ namespace SardineTail
                 .Categories().Do(entry => new ArchiveCollector(entry.Key, PkgId)
                     .Collect(entry.Value).Do(value => Register(entry.Key, value.Item1, value.Item2)));
     }
-    internal static partial class ModPackageExtensions
+    internal static partial class Extensions
     {
         internal static T Parse<T>(this Stream stream) where T : new() =>
             Json<T>.Deserialize.ApplyDisposable(stream)
                 .Try(Plugin.Instance.Log.LogMessage, out var value) ? value : new();
-        internal static bool ResourceExists(this string pkgId, string path) =>
-            Packages[pkgId].ResourceExists(path);
-        static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod = new();
-        internal static void RegisterIdToMod(this CatNo categoryNo, int id, ModInfo mod) =>
-            (IdToMod[categoryNo] = IdToMod.TryGetValue(categoryNo, out var mods) ? mods : new()).Add(id, mod);
-        internal static ModInfo FromId(this CatNo categoryNo, int id) =>
-            IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
-        static IEnumerable<Version> ToVersion(this string[] items) =>
-            items.Length switch
-            {
-                0 => [],
-                1 => [],
-                _ => Version.TryParse(items[^1], out var version) ? [version] : [],
-            };
-        static string DirectoryId(string root, string path) =>
-            string.Join('-', Path.GetRelativePath(root, path).Split('-')[0..^1]);
-        static string ArchiveId(string path) =>
-            string.Join('-', Path.GetFileName(path).Split('-')[0..^1]);
-        static Func<string, IEnumerable<ModPackage>> DirectoryToPackage(string root) =>
-             path => Path.GetRelativePath(root, path).Split('-').ToVersion()
-                .Select(version => new DirectoryPackage(DirectoryId(root, path), version, path));
-        static IEnumerable<ModPackage> ArchiveToPackage(string path) =>
-            Path.GetFileNameWithoutExtension(path).Split('-').ToVersion()
-                .Select(version => new ArchivePackage(ArchiveId(path), version, path));
-        static IEnumerable<ModPackage> ArchivePackages(string path) =>
-            Directory.GetFiles(path).Where(IsArchivePackage)
-                .SelectMany(ArchiveToPackage).Concat(Directory.GetDirectories(path).SelectMany(ArchivePackages));
-        static IEnumerable<ModPackage> DirectoryPackages(string path) =>
-            Plugin.DevelopmentMode.Value ?
-                Directory.GetDirectories(path).SelectMany(DirectoryToPackage(path)) : [];
-        static bool IsArchivePackage(string path) =>
-            ".stp".Equals(Path.GetExtension(path), StringComparison.OrdinalIgnoreCase);
-        static Dictionary<string, ModPackage> Packages = new();
-        internal static Dictionary<CatNo, Dictionary<int, ModInfo>> HardMigrations = new();
-        internal static void Register(CatNo categoryNo, int id, ModInfo info) =>
-            (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
-        internal static int ToId(this CatNo categoryNo, ModInfo info, int id) =>
-            HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod)
-                ? Packages[mod.PkgId].ToId(mod, id) : info == null ? id
-                : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.ToId(info, id)
-                : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
-        internal static void InitializePackages(this string path) =>
-            ArchivePackages(Path.Combine(path, "sardines"))
-                .Concat(DirectoryPackages(Path.Combine(path, "UserData", "plugins", Plugin.Guid, "packages"))).GroupBy(item => item.PkgId)
-                .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
-                .Select(entry => Packages[entry.Key] = entry.Value)
-                .Do(item => item.Initialize());
-        internal static UnityEngine.Object ToAsset(this string[] items, Il2CppSystem.Type type) =>
-            items.Length switch
-            {
-                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
-                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2], type),
-                _ => null
-            };
-        internal static UnityEngine.Object ToAsset(this string[] items) =>
-            items.Length switch
-            {
-                2 => Packages.GetValueOrDefault(items[0])?.GetTexture(Path.ChangeExtension(items[1], ".png")),
-                3 => Packages.GetValueOrDefault(items[0])?.GetAsset(items[1], items[2]),
-                _ => null
-            };
         internal static bool BypassFigure = false;
         internal static int OverrideBodyId = -1;
     }
@@ -543,21 +522,21 @@ namespace SardineTail
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
-                (Plugin.AssetBundle, _) => name.Split(':').ToAsset(type),
-                (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
-                (BodyPrefabAB, BodyPrefabF) => ModPackageExtensions.ToBodyPrefab() ?? __result,
-                (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
-                (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
+                (Plugin.AssetBundle, _) => ModPackage.ToAsset(name.Split(':'), type),
+                (BodyPrefabAB, BodyPrefabM) => Extensions.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => Extensions.ToBodyPrefab() ?? __result,
+                (BodyTextureAB, BodyTexture) => Extensions.ToBodyTexture() ?? __result,
+                (BodyShapeAnimeAB, BodyShapeAnime) => Extensions.ToBodyShapeAnime() ?? __result,
                 _ => null
             } ?? __result).With(EnableRedirect);
         static void LoadAssetWithoutTypePostfix(AssetBundle __instance, string name, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
-                (Plugin.AssetBundle, _) => name.Split(':').ToAsset(),
-                (BodyPrefabAB, BodyPrefabM) => ModPackageExtensions.ToBodyPrefab() ?? __result,
-                (BodyPrefabAB, BodyPrefabF) => ModPackageExtensions.ToBodyPrefab() ?? __result,
-                (BodyTextureAB, BodyTexture) => ModPackageExtensions.ToBodyTexture() ?? __result,
-                (BodyShapeAnimeAB, BodyShapeAnime) => ModPackageExtensions.ToBodyShapeAnime() ?? __result,
+                (Plugin.AssetBundle, _) => ModPackage.ToAsset(name.Split(':')),
+                (BodyPrefabAB, BodyPrefabM) => Extensions.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => Extensions.ToBodyPrefab() ?? __result,
+                (BodyTextureAB, BodyTexture) => Extensions.ToBodyTexture() ?? __result,
+                (BodyShapeAnimeAB, BodyShapeAnime) => Extensions.ToBodyShapeAnime() ?? __result,
                 _ => null
             } ?? __result).With(EnableRedirect);
         static void LoadAssetPrefix(string assetBundleName, ref string manifestAssetBundleName) =>

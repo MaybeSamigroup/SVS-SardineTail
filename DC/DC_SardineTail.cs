@@ -22,7 +22,7 @@ namespace SardineTail
             info => Human.lstCtrl._table[CurrentGameID][category.Index].Add(info.Id, info);
         internal static void InitializeManifest(this int gameId, string manifest, string path) =>
             ((CurrentGameID, AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles) =
-                (gameId, ExtendManifest(manifest))).With(path.InitializePackages);
+                (gameId, ExtendManifest(manifest))).With(F.Apply(ModPackage.InitializePackages, path));
         static string[] ExtendManifest(string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles.Concat([Plugin.AssetBundle]).ToArray();
     }
@@ -32,13 +32,13 @@ namespace SardineTail
         {
             Event.OnPreCharacterDeserialize +=
                 (data, archive) => CharaMods.Load(archive)
-                    .Apply(data.With(ModPackageExtensions.CaptureGameTag));
+                    .Apply(data.With(Extensions.CaptureGameTag));
             Event.OnPreCoordinateDeserialize +=
                 (_, data, limits, archive, current) => CoordMods
                     .ToMods(data.With(CoordMods.Load(archive).Apply(limits))).Save(current);
         }
     }
-    internal static partial class ModPackageExtensions
+    internal static partial class Extensions
     {
         static string GameTag;
         internal static void CaptureGameTag(HumanData data) =>
@@ -50,7 +50,7 @@ namespace SardineTail
             return AssetBundleManager.LoadAssetBundle(ref path, bundle, manifest);
         }
         static UnityEngine.Object ToBodyAsset(string bundle, string asset, Il2CppSystem.Type type) =>
-            Plugin.AssetBundle.Equals(bundle) ? asset.Split(':').ToAsset(type) : ToAssetBundle(bundle).Bundle.LoadAsset(asset, type);
+            Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToAsset(asset.Split(':'), type) : ToAssetBundle(bundle).Bundle.LoadAsset(asset, type);
         static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
             info != null &&
                 info.TryGetValue(ab, out var bundle) &&
