@@ -268,7 +268,7 @@ namespace SardineTail
     internal static partial class CategoryNoExtensions
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000 + new System.Random().Next(0, 100));
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000);
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
         internal static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) =>
             value switch
@@ -582,7 +582,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.1.2";
+        public const string Version = "1.1.3";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
