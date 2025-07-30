@@ -419,7 +419,7 @@ namespace SardineTail
             (coord, mod) => mod.Apply(limits)(data.Coordinates[(int)coord]);
         internal void ApplyFigure(HumanData data) =>
             Extensions.OverrideBodyId = Extensions.BypassFigure ? Extensions.OverrideBodyId :
-                ModInfo.Translate[CatNo.bo_body].ToId(Figure, data.Parameter.sex == 0 ? 0 : 1);
+                ModInfo.Translate[CatNo.bo_body].ToId(Figure, data.Parameter.sex);
         void ApplyGraphic(HumanDataGraphic data) =>
             data.RampID =
                 ModInfo.Translate[CatNo.mt_ramp].ToId(Graphic, data.RampID);

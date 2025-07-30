@@ -268,7 +268,7 @@ namespace SardineTail
     internal static partial class CategoryNoExtensions
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000);
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000 + new System.Random().Next(0, 100));
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
         internal static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) =>
             value switch

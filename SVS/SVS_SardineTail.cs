@@ -41,7 +41,7 @@ namespace SardineTail
                 (actor, archive) => CharaMods.Load(archive).Apply(actor.charFile);
             Event.OnPreActorHumanize +=
                 (_, data, archive) => CharaMods.Load(archive).ApplyFigure(data);
-            Event.OnPreCharacterDeserialize +=
+            Event.OnPreCharacterValidate +=
                 (data, limits, archive, current) => CharaMods
                     .ToMods(data.With(CharaMods.Load(archive).Apply(limits))).Save(current);
             Event.OnPreCoordinateDeserialize +=
@@ -119,7 +119,8 @@ namespace SardineTail
         Action SetBody(int id) => () =>
             ((Extensions.OverrideBodyId, Extensions.BypassFigure) = (id, true)).With(Event.HumanCustomReload);
         Action GetBody(int id) => () =>
-            (id != NameToId[Current.text]).Maybe(F.Apply(Current.SetText, IdToName[id], true) + Util.DoNextFrame.Apply(SetBody(id)));
+            (NameToId.TryGetValue(Current.text, out var value) && value != id && IdToName.ContainsKey(id))
+                .Maybe(F.Apply(Current.SetText, IdToName.GetValueOrDefault(id, Current.text), true) + Util.DoNextFrame.Apply(SetBody(id)));
         Action<GameObject> ObserveParentEnable(GameObject parent) =>
             go => parent.With(UGUI.Cmp(ObserveOnEnable(go)));
         Action<ObservableEnableTrigger> ObserveOnEnable(GameObject go) =>
@@ -127,8 +128,7 @@ namespace SardineTail
         Action<Unit> OnEnableParent(GameObject go) =>
             _ => go.SetActive(NowCategory is (1, 0) or (1, 9));
         void OnDeserialize(Human human, HumanData.LoadLimited.Flags limits, ZipArchive archive, ZipArchive storage) =>
-            Extensions.BypassFigure = Extensions.BypassFigure
-                ? false : false.With(GetBody(Extensions.OverrideBodyId));
+            Extensions.BypassFigure = Extensions.BypassFigure ? false : false.With(GetBody(Extensions.OverrideBodyId));
         void Dispose() =>
             Event.OnPostCharacterDeserialize -= OnDeserialize;
     }
