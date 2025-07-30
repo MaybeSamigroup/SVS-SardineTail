@@ -137,9 +137,6 @@ namespace SardineTail
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new();
     }
-    [BepInProcess(Process)]
-    [BepInDependency(Fishbone.Plugin.Guid)]
-    [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {
         public const string Process = "SamabakeScramble";

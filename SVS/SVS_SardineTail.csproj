@@ -82,6 +82,10 @@
 			<HintPath>$(GamePath)\BepInEx\plugins\SVS_Fishbone.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="VarietyOfScales">
+			<HintPath>$(GamePath)\BepInEx\plugins\SVS_VarietyOfScales.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
 	</ItemGroup>
 	<Target Name="Deploy" AfterTargets="Build">
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\" />

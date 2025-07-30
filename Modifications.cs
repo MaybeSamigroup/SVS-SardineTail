@@ -439,10 +439,17 @@ namespace SardineTail
             };
         internal partial void Save(ZipArchive archive) =>
             BonesToStuck<CharaMods>.Save(archive, this);
+        static Tuple<ChaFileDefine.CoordinateType, CoordMods> FromCoordinates(HumanDataCoordinate data, int index) =>
+            new((ChaFileDefine.CoordinateType)index, CoordMods.ToMods(data));
+
         static CharaMods() {
             ToMods = value => new CharaMods()
             {
                 Figure = ModInfo.Translate[CatNo.bo_body].FromId(Extensions.OverrideBodyId),
+                Face = FaceMods.ToMods(value.Custom.Face),
+                Body = BodyMods.ToMods(value.Custom.Body),
+                Graphic = ModInfo.Translate[CatNo.mt_ramp].FromId(value.Graphic.RampID),
+                Coordinates = value.Coordinates.Select(FromCoordinates).ToDictionary()
             };
             Load = archive =>
                 BonesToStuck<CharaMods>.Load(archive, out var mods) ? mods :

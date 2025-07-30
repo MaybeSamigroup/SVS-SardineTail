@@ -1,4 +1,5 @@
 using HarmonyLib;
+using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -267,7 +268,7 @@ namespace SardineTail
     internal static partial class CategoryNoExtensions
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000);
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000 + new System.Random().Next(0, 100));
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
         internal static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) =>
             value switch
@@ -574,6 +575,10 @@ namespace SardineTail
         public static void ApplyPatches(Harmony hi) =>
             hi.With(ApplyPrefixes).With(ApplyPostfixes);
     }
+    [BepInProcess(Process)]
+    [BepInDependency(Fishbone.Plugin.Guid)]
+    [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";

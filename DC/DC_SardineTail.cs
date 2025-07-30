@@ -1,5 +1,4 @@
 using HarmonyLib;
-using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using System;
 using System.IO;
@@ -78,9 +77,6 @@ namespace SardineTail
             ],
         };
     }
-    [BepInProcess(Process)]
-    [BepInDependency(Fishbone.Plugin.Guid)]
-    [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";
