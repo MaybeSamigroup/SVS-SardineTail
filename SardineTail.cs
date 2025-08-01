@@ -410,7 +410,7 @@ namespace SardineTail
         internal static Func<CatNo, ModInfo, int, int> ToId =
             (categoryNo, info, id) =>
                 HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var soft)
-                    ? Packages[soft.PkgId].TranslateId(soft, id) : info == null ? id
+                    ? Packages[soft.PkgId].TranslateId(soft, id) : info?.PkgId == null ? id
                     : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
                     : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
         internal static void InitializePackages(string path) =>
@@ -582,7 +582,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "1.1.3";
+        public const string Version = "1.1.4";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

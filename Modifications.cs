@@ -63,7 +63,8 @@ namespace SardineTail
         {
             data.glossId =
                 ModInfo.Translate[CatNo.mt_hairgloss].ToId(HairGloss, data.glossId);
-            (Hairs ?? [])
+            (Hairs ?? Enum.GetValues<ChaFileDefine.HairKind>()
+                .ToDictionary<ChaFileDefine.HairKind, ChaFileDefine.HairKind, ModInfo>(item => item, item => null))
                 .ForEach(ApplyParts(data));
         }
         static CatNo ToCategoryNo(ChaFileDefine.HairKind value) =>
@@ -99,9 +100,11 @@ namespace SardineTail
         internal partial void Apply(ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data) {
             data.id =
                 ModInfo.Translate[ToCategoryNo(part)].ToId(Part, data.id);
-            (Paints ?? [])
+            (Paints ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPaint(data));
-            (Patterns ?? [])
+            (Patterns ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPattern(data));
         }
         static CatNo ToCategoryNo(ChaFileDefine.ClothesKind value) =>
@@ -147,7 +150,8 @@ namespace SardineTail
         {
             data.id =
                 ModInfo.Translate[(CatNo)data.type].ToId(Part, data.id);
-            (Patterns ?? [])
+            (Patterns ?? Enumerable.Range(0, data.colorInfo.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPattern(data));
         }
         static Tuple<int, ModInfo> FromPattern(HumanDataAccessory.PartsInfo.ColorInfo data, int index) =>
@@ -181,9 +185,11 @@ namespace SardineTail
                 ModInfo.Translate[CatNo.mt_cheek].ToId(Cheek, data.cheekId);
             data.lipId =
                 ModInfo.Translate[CatNo.mt_lip].ToId(Lip, data.lipId);
-            (Paints ?? [])
+            (Paints ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPaint(data));
-            (Layouts ?? [])
+            (Layouts ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPaintLayout(data));
         }
         static Tuple<int, ModInfo> FromPaint(HumanDataPresetPaintInfo data, int index) =>
@@ -221,9 +227,11 @@ namespace SardineTail
                 ModInfo.Translate[CatNo.bo_nail].ToId(Nail, data.nailInfo.ID);
             data.nailLegInfo.ID =
                 ModInfo.Translate[CatNo.bo_nail].ToId(NailLeg, data.nailLegInfo.ID);
-            (Paints ?? [])
+            (Paints ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPaint(data));
-            (Layouts ?? [])
+            (Layouts ?? Enumerable.Range(0, data.paintInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyPaintLayout(data));
         }
         static Tuple<int, ModInfo> FromPaint(HumanDataPresetPaintInfo data, int index) =>
@@ -259,9 +267,15 @@ namespace SardineTail
                 ((limits & CoordLimit.FaceMakeup) is not CoordLimit.None)
                     .Maybe(F.Apply((FaceMakeup ?? new()).Apply, data.FaceMakeup));
                 ((limits & CoordLimit.Accessory) is not CoordLimit.None)
-                    .Maybe(F.Apply((Accessories ?? new()).ForEach, Apply(data.Accessory)));
+                    .Maybe(F.Apply((Accessories ??
+                        Enumerable.Range(0, data.Accessory.parts.Count)
+                            .ToDictionary(item => item, item => new AccessoryMods()))
+                            .ForEach, Apply(data.Accessory)));
                 ((limits & CoordLimit.Clothes) is not CoordLimit.None)
-                    .Maybe(F.Apply((Clothes ?? new ()).ForEach, Apply(data.Clothes)));
+                    .Maybe(F.Apply((Clothes ??
+                        Enum.GetValues<ChaFileDefine.ClothesKind>()
+                            .ToDictionary(item => item, item => new ClothMods()))
+                            .ForEach, Apply(data.Clothes)));
                 ((limits & CoordLimit.Hair) is not CoordLimit.None)
                     .Maybe(F.Apply((Hairs ?? new ()).Apply, data.Hair));
             };
@@ -299,7 +313,9 @@ namespace SardineTail
                 ModInfo.Translate[CatNo.mt_eye].ToId(Eye, data.id);
             data.gradMaskId =
                 ModInfo.Translate[CatNo.mt_eye_gradation].ToId(Gradation, data.gradMaskId);
-            Highlights
+            (Highlights ?? Enumerable
+                .Range(0, data.highlightInfos.Count)
+                .ToDictionary<int, int, ModInfo>(item => item, item => null))
                 .ForEach(ApplyHighlights(data));
         }
         static Tuple<int, ModInfo> FromHighlights(HumanDataFace.HighlightInfo data, int index) =>
@@ -345,7 +361,8 @@ namespace SardineTail
                 ModInfo.Translate[CatNo.mt_eyeline_up].ToId(EyelineUp, data.eyelineUpId);
             data.whiteId =
                 ModInfo.Translate[CatNo.mt_eye_white].ToId(EyeWhite, data.whiteId);
-            (Eyes ?? [])
+            (Eyes ?? Enumerable.Range(0, data.pupil.Count)
+                .ToDictionary(item => item, item => new EyeMods()))
                 .ForEach(ApplyEye(data));
         }
         static Tuple<int, EyeMods> FromEyes(HumanDataFace.PupilInfo data, int index) =>
@@ -433,7 +450,10 @@ namespace SardineTail
                 ((limits & CharaLimit.Face) is not CharaLimit.None)
                     .Maybe(F.Apply((Face ?? new()).Apply, data.Custom.Face));
                 ((limits & CharaLimit.Coorde) is not CharaLimit.None)
-                    .Maybe(F.Apply((Coordinates ?? new ()).ForEach, ApplyCoord(data, Translate(limits))));
+                    .Maybe(F.Apply((Coordinates ??
+                        Enum.GetValues<ChaFileDefine.CoordinateType>()
+                        .ToDictionary(type => type, type => new CoordMods()))
+                        .ForEach, ApplyCoord(data, Translate(limits))));
                 ((limits & CharaLimit.Graphic) is not CharaLimit.None)
                     .Maybe(F.Apply(ApplyGraphic, data.Graphic));
             };
