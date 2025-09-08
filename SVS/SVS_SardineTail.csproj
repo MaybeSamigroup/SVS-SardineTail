@@ -11,9 +11,9 @@
     </PropertyGroup>
 	<ItemGroup>
 		<Compile Include="..\SardineTail.cs"/>
-		<Compile Include="..\Conversion.cs"/>
 		<Compile Include="..\Definitions.cs"/>
 		<Compile Include="..\Modifications.cs"/>
+		<Compile Include="..\Conversion.cs"/>
 		<Reference Include="0Harmony">
 			<HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
 			<Private>False</Private>

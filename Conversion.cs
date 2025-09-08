@@ -15,7 +15,7 @@ using Dependencies = System.Tuple<System.Collections.Generic.HashSet<string>, Sy
 
 namespace SardineTail
 {
-    internal static partial class CategoryExtensions
+    internal static partial class CategoryExtension
     {
         internal static void Initialize() =>
             Util<Manager.Game>.Hook(() => Plugin.HardmodConversion.Value.Maybe(() => Convert(new(), new())), () => { });
@@ -23,7 +23,7 @@ namespace SardineTail
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         static void Convert(HashSet<string> originalAB, List<Dependency> dependencies)
         {
-            All.ForEach(category =>
+            All.Values.ForEach(category =>
             {
                 foreach (var (id, info) in Human.lstCtrl._table[category.Index])
                 {
@@ -33,7 +33,7 @@ namespace SardineTail
                             .Select(entry => entry.Index).Select(info.GetString)
                                 .Where(path => !"0".Equals(path)).ForEach(path => originalAB.Add(path));
                     }
-                    else if (ModInfo.Translate[category.Index].FromId(id) == null)
+                    else if (ModInfo.Map[category.Index].ToMod(id) == null)
                     {
                         dependencies.Add(new(category.Entries
                             .Where(entry => entry.Value is Vtype.Store)
@@ -73,7 +73,7 @@ namespace SardineTail
         static void GenerateHardMigration(this IEnumerable<ListInfoBase> infos, DirectoryInfo path,
             Func<Category, IEnumerable<ListInfoBase>, DirectoryInfo, Dictionary<int, HardMigrationInfo>> process) =>
             infos.GroupBy(info => (CatNo)info.Category, (category, subinfos) => new Tuple<CatNo, Dictionary<int, HardMigrationInfo>>(
-                    category, process(All.Where(item => item.Index == category).First(), subinfos, path)))
+                    category, process(All[category], subinfos, path)))
                 .Where(item => item.Item2.Count() > 0).ToDictionary(item => item.Item1, item => item.Item2)
                 .With(hardmig => File.WriteAllText(Path.Combine(path.FullName, "hardmig.json"),
                     JsonSerializer.Serialize(hardmig, JsonOption)));
