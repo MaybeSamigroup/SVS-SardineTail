@@ -78,7 +78,10 @@
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\" />
 	</Target>
 	<Target Name="Release" AfterTargets="Build">
-		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="GameRoot\BepinEx\plugins"/>
-		<ZipDirectory SourceDirectory="GameRoot" Overwrite="true" DestinationFile="..\$(GameName).zip"/>
+		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
+		<Copy SourceFiles="..\Resource\manifest" DestinationFiles="..\Release\$(GameName)\abdata\dc_abdata_99"/>
+		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\abdata"/>
+		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
+		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(GameName).zip"/>
 	</Target>
 </Project>

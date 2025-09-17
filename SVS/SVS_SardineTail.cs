@@ -84,16 +84,14 @@ namespace SardineTail
 
     class FigureChoice
     {
-        static FigureChoice Instance;
         Dictionary<int, string> IdToName;
         Dictionary<string, int> NameToId;
         ChoiceList Options;
         TextMeshProUGUI Current;
-
         internal static void Initialize() => Util.OnCustomHumanReady(Create);
 
         static void Create() =>
-            Instance = new FigureChoice(CategoryEdit.Instance._parameterWindow.Content.gameObject);
+            new FigureChoice(CategoryEdit.Instance._parameterWindow.Content.gameObject);
 
         static Func<Tuple<int, ListInfoBase>, bool> GenderFilter(int value) =>
             tuple => value == tuple.Item2.GetInfoInt(Ktype.Sex);
@@ -106,8 +104,11 @@ namespace SardineTail
         static (int, int) NowCategory =>
             (HumanCustom.Instance.NowCategory.Category, HumanCustom.Instance.NowCategory.Index);
 
-        FigureChoice(Dictionary<string, int> nameToId) =>
-            (NameToId, IdToName, Options) = (nameToId,  nameToId.ToDictionary(entry => entry.Value, entry => entry.Key),
+        FigureChoice() =>
+            Extension.OnLoadCustomChara += CheckFigure;
+        
+        FigureChoice(Dictionary<string, int> nameToId) : this() =>
+            (NameToId, IdToName, Options) = (nameToId, nameToId.ToDictionary(entry => entry.Value, entry => entry.Key),
                 new ChoiceList(300, 24, "Bodies", nameToId.OrderBy(entry => entry.Value).Select(entry => entry.Key).ToArray()));
 
         FigureChoice(GameObject parent) : this(GenderOptions) =>
@@ -122,11 +123,11 @@ namespace SardineTail
                     UGUI.Cmp<LayoutElement>(ui => ui.minHeight = 24) +
                     UGUI.Cmp(UGUI.Fitter()) + Options.Assign +
                     UGUI.ModifyAt("Choice.State", "Choice.Label")(
-                        UGUI.Cmp(UGUI.Text(text: "default")) +
+                        UGUI.Cmp(UGUI.Text(text: IdToName[IOExtension.CustomFigureId])) +
                         UGUI.Cmp<TextMeshProUGUI>(ui => Current = ui)) +
                     UGUI.Cmp(ObserveValueChanged)))
                 .With(ObserveParentEnable(parent))
-                .OnDestroyAsObservable().Subscribe((Action<Unit>)(_ => Instance = null));
+                .OnDestroyAsObservable().Subscribe(F.Ignoring<Unit>(Dispose));
 
         Action<Toggle> ObserveValueChanged =>
             ui => ui.OnValueChangedAsObservable().Subscribe(OnValueChanged);
@@ -149,26 +150,21 @@ namespace SardineTail
         Action<Unit> OnEnableParent(GameObject go) =>
             _ => go.SetActive(NowCategory is (1, 0) or (1, 9));
 
-        internal static void CheckFigure(int current, int id) =>
-            (Instance != null && current != id).Maybe(F.Apply(UpdateFigure, id));
+        void Dispose() =>
+            Extension.OnLoadCustomChara -= CheckFigure;
 
-        static void UpdateFigure(int id) =>
-            (Instance.Current.text = Instance.IdToName[id]).With(Extension.HumanCustomReload);
+         void CheckFigure(Human _) =>
+            IOExtension.ReloadingFigureId(out var id).Maybe(F.Apply(UpdateFigure, id));
+
+        void UpdateFigure(int id) =>
+            (Current.text = IdToName[id]).With(Extension.HumanCustomReload);
     }
 
     static partial class Hooks
     {
-        static void HumanReloadingDisposePostfix(Human.Reloading __instance) =>
-            (!__instance._isReloading).Maybe(__instance._human.OnHumanReloadingComplete);
-
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
 
-        static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
-        {
-            [nameof(HumanReloadingDisposePostfix)] = [
-                typeof(Human.Reloading).GetMethod(nameof(Human.Reloading.Dispose), 0, [])
-            ]
-        };
+        static Dictionary<string, MethodInfo[]> SpecPostfixes => new();
     }
 
     internal static partial class IOExtension
@@ -187,25 +183,33 @@ namespace SardineTail
                 : null;
 
         internal static UnityEngine.Object ToBodyPrefab() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
                 Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
 
         internal static UnityEngine.Object ToBodyTexture() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
                 Ktype.MainTexAB, Ktype.MainTex, Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>());
 
         internal static UnityEngine.Object ToBodyShapeAnime() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
 
-        internal static void InitializeOverrideBody() =>
-            FigureId = HumanCustom.Instance.IsMale() ? 0 : 1;
+        internal static int CustomFigureId =>
+            (HumanExtension<CharaMods, CoordMods>.Chara.FigureId, HumanCustom.Instance.IsMale()) switch
+            {
+                (< ModInfo.MIN_ID, true) => 0,
+                (< ModInfo.MIN_ID, false) => 1,
+                (var figureId, _) => figureId
+            };
 
-        internal static void OnHumanReloadingComplete(this Human human) =>
-            FigureChoice.CheckFigure(FigureId, Extension.Chara<CharaMods, CoordMods>(human).FigureId);
+        internal static bool ReloadingFigureId(out int figureId) =>
+            (FigureId, figureId = CustomFigureId) is not (
+                 < ModInfo.MIN_ID,
+                 < ModInfo.MIN_ID
+            ) && FigureId != figureId;
 
         internal static void SaveCustomChara() =>
             CharaMods.Store(HumanCustom.Instance.Human);
@@ -217,9 +221,9 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Process = "SamabakeScramble";
-        internal static readonly string ConversionsPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Name, "hardmods");
+        internal static readonly string ConvertPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Name, "hardmods");
+        internal static readonly string InvalidPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Name, "invalids");
         internal static ConfigEntry<bool> HardmodConversion;
-        internal static ConfigEntry<bool> StructureConversion;
 
         public override void Load()
         {
@@ -227,9 +231,7 @@ namespace SardineTail
             Instance = this;
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
-            StructureConversion = Config.Bind("General", "Convert hardmod into structured form.", false);
 
-            Util<HumanCustom>.Hook(IOExtension.InitializeOverrideBody, F.DoNothing);
             Util<CategoryEdit>.Hook(FigureChoice.Initialize, F.DoNothing);
 
             Extension.Register<CharaMods, CoordMods>();

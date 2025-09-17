@@ -20,6 +20,7 @@ namespace SardineTail
 
     public class ModInfo
     {
+        public const int MIN_ID = 1000_000_000;
         public string PkgId { get; set; }
         public string ModId { get; set; }
         public CatNo Category { get; set; }
@@ -82,7 +83,7 @@ namespace SardineTail
                 .ToDictionary();
     }
 
-    public partial class ClothMods
+    public class ClothMods
     {
         public ModInfo Part { get; set; }
         public Dictionary<int, ModInfo> Paints { get; set; }
@@ -160,7 +161,7 @@ namespace SardineTail
                 .ToDictionary();
     }
 
-    public partial class FaceMakeupMods
+    public class FaceMakeupMods
     {
         public ModInfo Eyeshadow { get; set; }
         public ModInfo Cheek { get; set; }
@@ -195,7 +196,7 @@ namespace SardineTail
         };
     }
 
-    public partial class BodyMakeupMods
+    public class BodyMakeupMods
     {
         public ModInfo Nail { get; set; }
         public ModInfo NailLeg { get; set; }
@@ -299,7 +300,7 @@ namespace SardineTail
         };
     }
 
-    public partial class FaceMods
+    public class FaceMods
     {
         public ModInfo Head { get; set; }
         public ModInfo Detail { get; set; }
@@ -350,7 +351,7 @@ namespace SardineTail
         };
     }
 
-    public partial class BodyMods
+    public class BodyMods
     {
         public ModInfo Detail { get; set; }
         public ModInfo Sunburn { get; set; }
@@ -395,7 +396,7 @@ namespace SardineTail
         };
 
         public CoordMods Get(int coordinateType) =>
-            Coordinates[(ChaFileDefine.CoordinateType)coordinateType];
+            Coordinates?.GetValueOrDefault((ChaFileDefine.CoordinateType)coordinateType) ?? new();
 
         public CharaMods Merge(int coordinateType, CoordMods mods) => new()
         {
@@ -404,14 +405,12 @@ namespace SardineTail
             Body = Body,
             Face = Face,
             Graphic = Graphic,
-            Coordinates = Coordinates.Where(entry => coordinateType != (int)entry.Key)
-                .Select(entry => new Tuple<ChaFileDefine.CoordinateType, CoordMods>(entry.Key, entry.Value))
-                .Append(new((ChaFileDefine.CoordinateType)coordinateType, mods)).ToDictionary()
+            Coordinates = (Coordinates ?? new()).Merge((ChaFileDefine.CoordinateType)coordinateType, mods)
         };
 
         internal void Apply(HumanData data)
         {
-            FigureId = ModInfo.Map[CatNo.bo_body].ToId(Figure, HumanData.IsMale(data.Parameter.sex) ? 0 : 1);
+            FigureId = ModInfo.Map[CatNo.bo_body].ToId(Figure, -1);
             data.Graphic.RampID = ModInfo.Map[CatNo.mt_ramp].ToId(Graphic, data.Graphic.RampID);
             Body.Defaults().Apply(data.Custom.Body);
             Face.Defaults().Apply(data.Custom.Face);

@@ -1,129 +1,178 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Unicode;
-using System.Text.Encodings.Web;
 using System.Collections.Generic;
 using Character;
+using BepInEx;
+using CoastalSmell;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
-using CoastalSmell;
-using BepInEx;
-using Dependency = System.Tuple<System.Collections.Generic.HashSet<string>, Character.ListInfoBase>;
-using Dependencies = System.Tuple<System.Collections.Generic.HashSet<string>, System.Collections.Generic.IEnumerable<Character.ListInfoBase>>;
+using System.Text.Json;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 
 namespace SardineTail
 {
+    class ConvertEntry
+    {
+        public string Name;
+        public int Id { get; set; }
+        public CatNo Category { get; set; }
+        public string Manifest { get; set; } = "0";
+        public List<string> Bundles { get; set; } = new();
+        public List<string> Invalid { get; set; } = new();
+        public Dictionary<Ktype, string> Values { get; set; } = new();
+    }
+
+    class ConvertPackage
+    {
+        public List<string> Bundles;
+        public List<ConvertEntry> Entries;
+        public ConvertPackage(List<string> bundles, List<ConvertEntry> entries) =>
+            (Bundles, Entries) = (bundles, entries);
+        public ConvertPackage(Dictionary<string, string> manifestMap, ConvertEntry entry) :
+            this(entry.Bundles.Where(bundle => !manifestMap.ContainsKey(bundle)).ToList(), [entry]) { }
+        public bool Intersect(ConvertPackage package) =>
+            package.Bundles.Count == 0 ? Bundles.Count == 0 : package.Bundles.Any(Bundles.Contains);
+        public ConvertPackage Merge(IEnumerable<ConvertPackage> packages) =>
+            new(Bundles.Concat(packages.SelectMany(package => package.Bundles)).Distinct().ToList(), Entries.Concat(packages.SelectMany(package => package.Entries)).ToList());
+        public string PackagePath =>
+            Bundles.Count == 0
+                ? Path.Combine(Plugin.ConvertPath, "ILLGames.Redefine-0.0.0")
+                : Bundles.Where(bundle => !bundle.Contains("thumb"))
+                    .Select(ToPath).Select(ToPluralPath)
+                    .OrderBy(path => path.Length).First();
+        string ToPath(string bundle) =>
+            Path.GetFileNameWithoutExtension(string.Join('.',
+                bundle.Split(Path.AltDirectorySeparatorChar)
+                    .Where(path => !"MOD".Equals(path))
+                    .Where(path => !"chara".Equals(path))));
+
+        string ToPluralPath(string name) =>
+            Enumerable.Range(0, 100).Select(index => index == 0 ? "" : $"({index})")
+                .Select(suffix => Path.Combine(Plugin.ConvertPath, $"{name}{suffix}-0.0.0"))
+                .Where(path => !Directory.Exists(path)).First();
+    }
     internal static partial class CategoryExtension
     {
         internal static void Initialize() =>
-            Util<Manager.Game>.Hook(() => Plugin.HardmodConversion.Value.Maybe(() => Convert(new(), new())), () => { });
+            Plugin.HardmodConversion.Value.Maybe(Util<Manager.Game>.Hook.Apply(Convert).Apply(F.DoNothing));
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
-        static void Convert(HashSet<string> originalAB, List<Dependency> dependencies)
+
+        static void Convert()
         {
-            All.Values.ForEach(category =>
+            new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
+                .Where(Directory.Exists)
+                .ForEach(path => Directory.Delete(path, true));
+            new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
+                .ForEach(path => Directory.CreateDirectory(path));
+            All.Values.SelectMany(Convert)
+                .GroupBy(entry => entry.Invalid.Count > 0)
+                .ForEach(group => ForkInvalidAndValid(group.Key)(group));
+            Plugin.HardmodConversion.Value = false;
+        }
+        static IEnumerable<ConvertEntry> Convert(Category category) =>
+            Human.lstCtrl._table[category.Index].Yield()
+                .Where(tuple => ModInfo.Map[category.Index].ToMod(tuple.Item1) is null)
+                .Select(tuple => Convert(category, tuple.Item1, tuple.Item2,
+                    category.Entries
+                        .Where(entry => entry.Value == Vtype.Store)
+                        .Where(entry => tuple.Item2.ContainsKey(entry.Index))
+                        .Select(entry => tuple.Item2.GetString(entry.Index))
+                        .Where(value => !ListInfoBase.IsNoneOrEmpty(value)).Distinct()
+                        .GroupBy(AbdataExists)));
+
+        static ConvertEntry Convert(Category category, int id, ListInfoBase info, IEnumerable<IGrouping<bool, string>> groups) => new()
+        {
+            Id = id,
+            Name = info.Name,
+            Category = category.Index,
+            Manifest = info.TryGetValue(Ktype.MainManifest, out var value) ? value : "0",
+            Values = category.Entries
+                .Where(entry => Vtype.Name != entry.Value)
+                .Where(entry => info.ContainsKey(entry.Index))
+                .ToDictionary(entry => entry.Index, entry => info.GetString(entry.Index)),
+            Bundles = groups.Where(group => group.Key).SelectMany(group => group).ToList(),
+            Invalid = groups.Where(group => !group.Key).SelectMany(group => group).ToList()
+        };
+
+        static bool AbdataExists(string bundle) =>
+            File.Exists(Path.Combine([Paths.GameRootPath, "abdata", .. bundle.Split(Path.AltDirectorySeparatorChar)]));
+        static Action<IEnumerable<ConvertEntry>> ForkInvalidAndValid(bool value) => value ? Invalid : Convert;
+
+        static void Invalid(IEnumerable<ConvertEntry> entries) =>
+            entries.GroupBy(entry => entry.Category)
+                .ForEach(group => Invalid(Directory.CreateDirectory(Path.Combine(Plugin.InvalidPath, group.Key.ToString())), group));
+        static void Convert(IEnumerable<ConvertEntry> entries) =>
+            Convert(ToManifestMap(entries.Where(entry => entry.Id < 100)), entries.Where(entry => entry.Id >= 100));
+
+        static Dictionary<string, string> ToManifestMap(IEnumerable<ConvertEntry> entries) =>
+            ToManifestMap(
+                entries.SelectMany(entry => entry.Bundles).Distinct(),
+                entries.GroupBy(entry => entry.Manifest)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.SelectMany(entry => entry.Bundles).Distinct().ToList()));
+
+        static Dictionary<string, string> ToManifestMap(IEnumerable<string> bundles, Dictionary<string, List<string>> manifestToBundles) =>
+            bundles.ToDictionary(
+                bundle => bundle,
+                bundle => manifestToBundles
+                    .Where(entry => entry.Value.Contains(bundle))
+                    .Select(entry => entry.Key).FirstOrDefault("abdata"));
+
+        static void Convert(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
+            Convert(manifestMap, entries.Select(entry => new ConvertPackage(manifestMap, entry)));
+        static void Convert(Dictionary<string, string> manifestMap, IEnumerable<ConvertPackage> entries)
+        {
+            List<ConvertPackage> packages = new ();
+            foreach (var entry in entries)
             {
-                foreach (var (id, info) in Human.lstCtrl._table[category.Index])
+                var results = packages.GroupBy(group => group.Intersect(entry));
+                packages = results.Where(result => !result.Key).SelectMany(result => result)
+                    .Append(entry.Merge(results.Where(result => result.Key).SelectMany(result => result))).ToList();
+            }
+            packages.ForEach(package => Package(manifestMap, package));
+        }
+        static void Package(Dictionary<string, string> manifestMap, ConvertPackage package)
+        {
+            var path = package.PackagePath;
+            Directory.CreateDirectory(path);
+            foreach (var bundle in package.Bundles)
+            {
+                var dest = Path.Combine([path, .. bundle.Split(Path.AltDirectorySeparatorChar)]);
+                Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                File.Copy(Path.Combine([Paths.GameRootPath, "abdata", .. bundle.Split(Path.AltDirectorySeparatorChar)]), dest);
+            }
+            Dictionary<CatNo, Dictionary<string, HardMigrationInfo>> hardmigs = new();
+            foreach (var group in package.Entries.GroupBy(entry => entry.Category))
+            {
+                Dictionary<string, HardMigrationInfo> hardmig = new();
+                using (var stream = new StreamWriter(File.OpenWrite(Path.Combine(path, $"{group.Key}.csv")), new UTF8Encoding(false)))
                 {
-                    if (0 <= id && id < 100)
+                    var defs = All[group.Key].Entries;
+                    stream.WriteLine(string.Join(',', defs.Select(def => def.Index.ToString())));
+                    foreach (var dups in group.GroupBy(mod => mod.Name))
                     {
-                        category.Entries.Where(entry => entry.Value is Vtype.Store)
-                            .Select(entry => entry.Index).Select(info.GetString)
-                                .Where(path => !"0".Equals(path)).ForEach(path => originalAB.Add(path));
-                    }
-                    else if (ModInfo.Map[category.Index].ToMod(id) == null)
-                    {
-                        dependencies.Add(new(category.Entries
-                            .Where(entry => entry.Value is Vtype.Store)
-                            .Select(entry => entry.Index).Select(info.GetString)
-                            .Where(path => path != null && File.Exists(Path.Combine(Paths.GameRootPath, "abdata", path)))
-                            .ToHashSet(), info));
+                        var toModId = ToModId(dups.Count());
+                        foreach (var (mod, idx) in dups.Select((mod, idx) => (mod, idx + 1)))
+                        {
+                            mod.Values[Ktype.Name] = mod.Name = toModId(mod, idx);
+                            mod.Values[Ktype.MainManifest] = mod.Bundles.Where(manifestMap.ContainsKey).Select(bundle => manifestMap[bundle]).FirstOrDefault("abdata");
+                            stream.WriteLine(string.Join(',', defs.Select(def => mod.Values.GetValueOrDefault(def.Index, def.Default.FirstOrDefault("0")))));
+                            hardmig.Add(mod.Id.ToString(), new() { ModId = $"{group.Key}.csv/{mod.Name}", Version = new(0, 0, 0) });
+                        }
                     }
                 }
-            });
-            dependencies.Select(tuple => new Dependency(tuple.Item1.Except(originalAB).ToHashSet(), tuple.Item2))
-                .Aggregate<Dependency, IEnumerable<Dependencies>>([], Accumulate)
-                .GroupBy(GeneratePackageName, (name, deps) => name.Merge(deps))
-                .ForEach(tuple => ConvertPackage(tuple.Item1, tuple.Item2));
+                hardmigs.Add(group.Key, hardmig);
+            }
+            File.WriteAllText(Path.Combine(path, "hardmig.json"), JsonSerializer.Serialize(hardmigs, JsonOption));
         }
-        static Tuple<string, Dependencies> Merge(this string name, IEnumerable<Dependencies> deps) =>
-            new(name, deps.Aggregate((fst, snd) => new(fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2))));
-        static IEnumerable<Dependencies> Merge(IEnumerable<Dependencies> deps, Dependency dep) =>
-            [deps.Aggregate(new Dependencies(dep.Item1, [dep.Item2]), (fst, snd) => new(fst.Item1.Union(snd.Item1).ToHashSet(), fst.Item2.Concat(snd.Item2)))];
-        static IEnumerable<Dependencies> Accumulate(IEnumerable<Dependencies> deps, Dependency dep) =>
-            dep.Item1.Count() == 0
-                ? Merge(deps.Where(item => item.Item1.Count() == 0), dep)
-                    .Concat(deps.Where(item => item.Item1.Count() != 0))
-                : Merge(deps.Where(item => item.Item1.Any(dep.Item1.Contains)), dep)
-                    .Concat(deps.Where(item => !item.Item1.Any(dep.Item1.Contains)));
-        static string GeneratePackageName(Dependencies deps) =>
-            deps.Item1.Count() == 0 ? "listonly" : deps.Item1
-                .Select(Path.GetFileNameWithoutExtension).Where(name => !name.Contains("thumb")).MinBy(name => name.Length);
-        static void ConvertPackage(string name, Dependencies deps) =>
-            Directory.CreateDirectory(Path.Combine(Plugin.ConversionsPath, $"{name}-0.0.0"))
-                .With(() => Plugin.Instance.Log.LogMessage($"Conversion start for package: {name}"))
-                .With(deps.Item1.CopyAssetBundles)
-                .With(Plugin.StructureConversion.Value ? deps.Item2.ConvertToStructure : deps.Item2.ConvertToCsv);
-        static void CopyAssetBundles(this IEnumerable<string> paths, DirectoryInfo dest) =>
-            paths.ToDictionary(path => Path.Combine(Paths.GameRootPath, "abdata", path), path => Path.Combine(dest.FullName, path))
-                .Where(entry => File.Exists(entry.Key))
-                .ForEach(entry => Directory.CreateDirectory(Path.GetDirectoryName(entry.Value)).With(() => File.Copy(entry.Key, entry.Value)));
-        static void GenerateHardMigration(this IEnumerable<ListInfoBase> infos, DirectoryInfo path,
-            Func<Category, IEnumerable<ListInfoBase>, DirectoryInfo, Dictionary<int, HardMigrationInfo>> process) =>
-            infos.GroupBy(info => (CatNo)info.Category, (category, subinfos) => new Tuple<CatNo, Dictionary<int, HardMigrationInfo>>(
-                    category, process(All[category], subinfos, path)))
-                .Where(item => item.Item2.Count() > 0).ToDictionary(item => item.Item1, item => item.Item2)
-                .With(hardmig => File.WriteAllText(Path.Combine(path.FullName, "hardmig.json"),
-                    JsonSerializer.Serialize(hardmig, JsonOption)));
-        static void ConvertToCsv(this IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
-            infos.GenerateHardMigration(path, ConvertToCsv);
-        static Tuple<int, HardMigrationInfo> NotifyIdConflict(int id, IEnumerable<string> mods) =>
-            new(id, new HardMigrationInfo()
-            {
-                ModId = mods.Count() > 1 ? mods
-                .With(() => Plugin.Instance.Log.LogMessage($"Id:{id} conflict between:"))
-                .With(() => mods.ForEach(mod => Plugin.Instance.Log.LogMessage(mod))).First() : mods.First(),
-                Version = new Version(0, 0, 0)
-            });
-        static Dictionary<int, HardMigrationInfo> ConvertToCsv(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
-            infos.With(category.Entries.Select(entry => entry.Index).ConvertToCsv(Path.Combine(path.FullName, $"{category.Index}.csv")))
-                .GroupBy(info => info.Id, info => $"{category.Index}.csv/{info.Name}", NotifyIdConflict)
-                .ToDictionary(item => item.Item1, item => item.Item2);
-        static Action<IEnumerable<ListInfoBase>> ConvertToCsv(this IEnumerable<Ktype> indices, string path) =>
-            infos => File.WriteAllLines(path, [string.Join(',', indices),
-                .. infos.Select(info => string.Join(',', indices.Select(info.GetString).Select(Normalize)))]);
-        static void ConvertToStructure(this IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
-            infos.GenerateHardMigration(path, ConvertToStructure);
-        static Dictionary<int, HardMigrationInfo> ConvertToStructure(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
-            ConvertToStructure(category, infos, path, 0);
-        static string ConvertToGroupIdentity(Category category, ListInfoBase info) =>
-            JsonSerializer.Serialize(category.Entries
-                .Where(entry => entry.Value is Vtype.Text && entry.Default.Length != 0)
-                .Select(entry => new Tuple<Entry, string>(entry, Normalize(info.GetString(entry.Index))))
-                .Where(tuple => !tuple.Item1.Default[0].Equals(tuple.Item2))
-                .ToDictionary(tuple => tuple.Item1.Index, tuple => tuple.Item2), JsonOption);
-        static Dictionary<int, HardMigrationInfo> ConvertToStructure(Category category, IEnumerable<ListInfoBase> infos, DirectoryInfo path, int index) =>
-            infos.With(() => Directory.CreateDirectory(Path.Combine(path.FullName, category.Index.ToString())))
-                .GroupBy(info => ConvertToGroupIdentity(category, info), (group, infos) => ConvertToStructure(category, index++, group, infos, path))
-                .Aggregate((fst, snd) => fst.Concat(snd))
-                .GroupBy(tuple => tuple.Item1, tuple => tuple.Item2, NotifyIdConflict)
-                .ToDictionary(item => item.Item1, item => item.Item2);
-        static IEnumerable<Tuple<int, string>> ConvertToStructure(Category category, int index, string group, IEnumerable<ListInfoBase> infos, DirectoryInfo path) =>
-            Directory.CreateDirectory(Path.Combine(path.FullName, category.Index.ToString(), $"group{index}"))
-                .With(subpath => File.WriteAllText(Path.Combine(subpath.FullName, "values.json"), group))
-                .ConvertToStructure(category, $"{category.Index}/group{index}", infos);
-        static IEnumerable<Tuple<int, string>> ConvertToStructure(this DirectoryInfo path, Category category, string prefix, IEnumerable<ListInfoBase> infos) =>
-            infos.Select(info => new Tuple<int, string>(info.Id, path.ConvertToStructure(ConvertName(info.Name), prefix,
-                category.Entries.Where(entry => entry.Default.Length == 0 || (entry.Value is not Vtype.Text))
-                    .Select(entry => new Tuple<Entry, string>(entry, Normalize(info.GetString(entry.Index))))
-                    .Where(tuple => tuple.Item1.Default.Length == 0 || !tuple.Item1.Default[0].Equals(tuple.Item2))
-                    .ToDictionary(tuple => tuple.Item1.Index, tuple => tuple.Item2))));
-        static string ConvertToStructure(this DirectoryInfo path, string name, string prefix, Dictionary<Ktype, string> values) =>
-            $"{prefix}/{name}".With(() => Directory.CreateDirectory(Path.Combine(path.FullName, name))
-                .With(subpath => File.WriteAllText(Path.Combine(subpath.FullName, "values.json"), JsonSerializer.Serialize(values, JsonOption))));
-        static string ConvertName(string name) =>
-            Path.GetInvalidFileNameChars().Aggregate(name, (name, ch) => name.Replace(ch, ' '), name => name);
+        static Func<ConvertEntry, int, string> ToModId(int count) =>
+            count > 1 ? ((entry, idx) => $"{entry.Name}({idx})") : ((entry, _) => entry.Name);
+        static void Invalid(DirectoryInfo path, IEnumerable<ConvertEntry> entries) =>
+            entries.ForEach(entry => File.WriteAllText(Path.Combine(path.FullName, $"{entry.Id}.json"), JsonSerializer.Serialize(entry, JsonOption)));
     }
 }

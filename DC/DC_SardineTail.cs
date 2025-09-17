@@ -107,17 +107,17 @@ namespace SardineTail
                 : null;
 
         internal static UnityEngine.Object ToBodyPrefab() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
                 Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
 
         internal static UnityEngine.Object ToBodyTexture() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
                 Ktype.MainTexAB, Ktype.MainTex, Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>());
 
         internal static UnityEngine.Object ToBodyShapeAnime() =>
-            FigureId < 100000000 ? null :
+            (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
     }

@@ -27,7 +27,7 @@ namespace SardineTail
     internal static partial class CategoryExtension
     {
         static readonly Dictionary<CatNo, int> Identities =
-            Enum.GetValues<CatNo>().ToDictionary(item => item, item => 100000000 + new System.Random().Next(0, 100));
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => ModInfo.MIN_ID + new System.Random().Next(0, 100));
 
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
 
@@ -450,7 +450,7 @@ namespace SardineTail
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
-    //[BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {

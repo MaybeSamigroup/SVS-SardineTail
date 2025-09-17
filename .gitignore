@@ -1,8 +1,4 @@
-*/GameRoot/BepinEx/plugins/
-*/GameRoot/**/values.json
+Release/
 obj/
 bin/
 *.zip
-
-.vs
-_ReSharper.Caches
