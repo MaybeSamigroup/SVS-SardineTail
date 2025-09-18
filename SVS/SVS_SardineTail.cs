@@ -88,9 +88,7 @@ namespace SardineTail
         Dictionary<string, int> NameToId;
         ChoiceList Options;
         TextMeshProUGUI Current;
-        internal static void Initialize() => Util.OnCustomHumanReady(Create);
-
-        static void Create() =>
+        internal static void Initialize() =>
             new FigureChoice(CategoryEdit.Instance._parameterWindow.Content.gameObject);
 
         static Func<Tuple<int, ListInfoBase>, bool> GenderFilter(int value) =>
@@ -216,6 +214,8 @@ namespace SardineTail
 
         internal static void SaveCustomCoord() =>
             CharaMods.Store(HumanCustom.Instance.Human);
+
+        internal static void InitializeFigureId() => FigureId = -1;
     }
 
     public partial class Plugin : BasePlugin
@@ -232,7 +232,7 @@ namespace SardineTail
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
 
-            Util<CategoryEdit>.Hook(FigureChoice.Initialize, F.DoNothing);
+            Util<CategoryEdit>.Hook(FigureChoice.Initialize, IOExtension.InitializeFigureId);
 
             Extension.Register<CharaMods, CoordMods>();
             Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);
