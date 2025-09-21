@@ -17,14 +17,30 @@ Confirmed working under SamabakeScramble 1.1.6 and DigitalCraft 2.0.0
 
 Extract the [latest release](https://github.com/MaybeSamigroup/SVS-SardineTail/releases/latest) to your game install directory.
 
-## Migration from 1.0. release
+## Migration from older release
 
 Remove SardineTail.dll from BepinEx/plugins.
 
 Plugin assembly names are now SVS_SardineTail.dll and DC_SardineTail.dll.
+
+## Migration from 1.X.X to 2.X.X
+
+These directories contained in previous releases are no longer used.
+Please move it contents to new one and delete it.
+
+- (GameRoot)/UserData/plugins/SamabakeScramble.SardineTail
+  - New! (GameRoot)/UserData/plugins/SardineTail
 
 ## How to use
 
 For mod user, acquire sardine tail package from somewhere and place it in sardines directory at  your game install directory.
 
 For mod developer, refer the [package specification](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki)
+
+## How to use in DC
+
+Please follow [installation instruction](https://github.com/MaybeSamigroup/SVS-Fishbone).
+
+Mods for SamabakeScramble made characters are loaded from sardines directory in SamabakeScramble install directory.
+
+Currently there is no use of sardines directory under Digital Craft install directory.
