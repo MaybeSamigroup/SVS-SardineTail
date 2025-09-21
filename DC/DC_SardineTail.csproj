@@ -79,9 +79,14 @@
 	</Target>
 	<Target Name="Release" AfterTargets="Build">
 		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
+		<MakeDir Directories="..\Release\$(GameName)\UserData\plugins\SardineTail\packages"/>
 		<Copy SourceFiles="..\Resource\manifest" DestinationFiles="..\Release\$(GameName)\abdata\dc_abdata_99"/>
 		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\abdata"/>
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
-		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(GameName).zip"/>
+		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>
+	</Target>
+	<Target Name="CleanRelease" AfterTargets="Clean">
+		<RemoveDir Directories="..\Release\$(GameName)"/>
+		<Delete Files="..\$(AssemblyName).zip"/>
 	</Target>
 </Project>

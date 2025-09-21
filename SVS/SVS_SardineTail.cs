@@ -24,7 +24,7 @@ namespace SardineTail
     internal abstract partial class ModPackage
     {
         internal ModPackage(string path, string pkgId, Version version) =>
-            ((PkgPath, PkgId, PkgVersion) = (path, pkgId, version)).With(Initialize);
+            (PkgPath, PkgId, PkgVersion) = (path, pkgId, version);
 
         internal void Register(Category category, string modId, ListInfoBase info) =>
             (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[category.Index].TryAdd(info.Id, info))
@@ -44,7 +44,7 @@ namespace SardineTail
                 .Concat(DevPackage.Collect(Path.Combine(path, "UserData", "plugins", Plugin.Name, "packages")))
                 .GroupBy(item => item.PkgId)
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
-                .ForEach(entry => Packages[entry.Key] = entry.Value);
+                .ForEach(entry => Packages[entry.Key] = entry.Value.With(entry.Value.Initialize));
     }
 
     internal partial class DevPackage : ModPackage
@@ -77,9 +77,7 @@ namespace SardineTail
 
         internal static Func<string, IEnumerable<ModPackage>> Collect = path =>
             new DirectoryInfo(path).GetFiles("*.stp", SearchOption.AllDirectories)
-                .Select(info => info.FullName)
-                .SelectMany(ToPackages)
-                .Concat(Directory.GetDirectories(path).SelectMany(Collect));
+                .Select(info => info.FullName).SelectMany(ToPackages);
     }
 
     class FigureChoice
@@ -233,6 +231,11 @@ namespace SardineTail
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
 
             Util<CategoryEdit>.Hook(FigureChoice.Initialize, IOExtension.InitializeFigureId);
+
+            Extension.OnPreprocessChara += Extension<CharaMods, CoordMods>
+                .Translate<CharaMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
+            Extension.OnPreprocessCoord += Extension<CharaMods, CoordMods>
+                .Translate<CoordMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
 
             Extension.Register<CharaMods, CoordMods>();
             Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);

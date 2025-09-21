@@ -19,7 +19,7 @@ namespace SardineTail
         int GameId;
 
         internal ModPackage(int gameId, string path, string pkgId, Version version) =>
-            ((GameId, PkgPath, PkgId, PkgVersion) = (gameId, path, pkgId, version)).With(Initialize);
+            (GameId, PkgPath, PkgId, PkgVersion) = (gameId, path, pkgId, version);
 
         internal void Register(Category category, string modId, ListInfoBase info) =>
             (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[GameId][category.Index].TryAdd(info.Id, info))
@@ -39,7 +39,7 @@ namespace SardineTail
                 .Concat(DevPackage.Collect(gameId, Path.Combine(path, "UserData", "plugins", Plugin.Name, "packages")))
                 .GroupBy(item => item.PkgId)
                 .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
-                .ForEach(entry => Packages[entry.Key] = entry.Value);
+                .ForEach(entry => Packages[entry.Key] = entry.Value.With(entry.Value.Initialize));
     }
 
     internal partial class DevPackage : ModPackage
@@ -72,9 +72,7 @@ namespace SardineTail
 
         internal static Func<int, string, IEnumerable<ModPackage>> Collect = (gameId, path) =>
             new DirectoryInfo(path).GetFiles("*.stp", SearchOption.AllDirectories)
-                .Select(info => info.FullName)
-                .SelectMany(ToPackages.Apply(gameId))
-                .Concat(Directory.GetDirectories(path).SelectMany(Collect.Apply(gameId)));
+                .Select(info => info.FullName).SelectMany(ToPackages.Apply(gameId));
     }
 
     internal static partial class IOExtension

@@ -10,6 +10,8 @@ using HarmonyLib;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using BepInEx.Configuration;
+using Il2CppInterop.Runtime.Injection;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using CoastalSmell;
 using Fishbone;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
@@ -44,7 +46,6 @@ namespace SardineTail
         internal static ListInfoBase Resolve(this Category category, Values values) =>
             new ListInfoBase((int)category.Index, 0, new KeysDefs(category.ResolveKeys().Pointer), category.ResolveValues(values));
     }
-
     internal abstract class CategoryCollector<T>
     {
         internal const string HARD_MIGRATION = "hardmig.json";
@@ -160,7 +161,8 @@ namespace SardineTail
                         tuple.Item2.Append(new ModNode<T>(root, category, [.. paths, group.Key],
                             group.Where(leaf => leaf.Paths.Length > depth + 1), depth + 1))));
         internal ModNode(CategoryCollector<T> root, Category category, string path, IEnumerable<string[]> inputs) :
-            this(root, category, [path], inputs.Where(paths => paths.Length > 1).Select(paths => new ModLeaf<T>(root, category, paths)), 1) { }
+            this(root, category, [path], inputs.Where(paths => paths.Length > 1).Select(paths => new ModLeaf<T>(root, category, paths)), 1)
+        { }
     }
     internal static partial class IOExtension
     {
@@ -233,8 +235,8 @@ namespace SardineTail
     }
     internal abstract partial class ModPackage
     {
-        static readonly AssetBundle DefaultBundle = new();
         static readonly Texture2D DefaultTexture = new(0, 0);
+        internal static readonly AssetBundle DefaultBundle = new();
         internal string PkgPath;
         internal string PkgId;
         internal Version PkgVersion;
@@ -269,8 +271,9 @@ namespace SardineTail
         Texture2D GetTexture(byte[] bytes) =>
             new Texture2D(256, 256).With(t2d => ImageConversion.LoadImage(t2d, bytes));
         AssetBundle GetAssetBundle(string path) =>
-            Cache.TryGetValue(path, out var cache) ? cache :
-                ResourceExists(path) ? Cache[path] = ToAssetBundle(path) : DefaultBundle;
+            Cache.TryGetValue(path, out var cache) ? cache : CacheAssetBundle(path);
+        AssetBundle CacheAssetBundle(string path) =>
+            ResourceExists(path) ? Cache[path] = ToAssetBundle(path) : DefaultBundle;
         UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
             GetAssetBundle(bundle).LoadAsset(asset, type);
         internal void Unload() =>
@@ -370,7 +373,14 @@ namespace SardineTail
         internal override string ToString(string path) =>
             System.Text.Encoding.UTF8.GetString(ToBytes(path));
         internal override AssetBundle ToAssetBundle(string path) =>
-            AssetBundle.LoadFromMemory(ToBytes(path));
+            ToAssetBundle(Archive.GetEntry(path));
+        AssetBundle ToAssetBundle(ZipArchiveEntry entry) =>
+            entry == null ? DefaultBundle : entry.Length == entry.CompressedLength
+                ? LoadAssetBundleFromStream(entry) : LoadAssetBundleFromBytes(entry);
+        AssetBundle LoadAssetBundleFromStream(ZipArchiveEntry entry) =>
+            AssetBundle.LoadFromStream(new EntryWrapper(File.OpenRead(PkgPath), entry.EntryOffset(), entry.Length));
+        AssetBundle LoadAssetBundleFromBytes(ZipArchiveEntry entry) =>
+            AssetBundle.LoadFromMemory(ToBytes(entry));
         byte[] ToBytes(ZipArchiveEntry entry) =>
             EntryToBytes((int)entry.Length).ApplyDisposable(entry.Open())
                 .Try(Plugin.Instance.Log.LogMessage, out var value) ? value : [];
@@ -385,6 +395,46 @@ namespace SardineTail
         static string GameTag;
         internal static void OverrideFigure(Human human) =>
             (GameTag, FigureId) = (human.data.Tag, Extension.Chara<CharaMods, CoordMods>(human).FigureId);
+        internal static long EntryOffset(this ZipArchiveEntry entry) =>
+            (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
+                 BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
+    }
+    public class EntryWrapper : Il2CppSystem.IO.Stream
+    {
+        Stream Target;
+        public long EntryOffset { get; init; }
+        public long EntryLength { get; init; }
+        public override long Length => EntryLength;
+        public override long Position
+        {
+            get => Target.Position - EntryOffset;
+            set => Target.Position = EntryOffset + Math.Min(value, EntryLength);
+        }
+        EntryWrapper() : base(ClassInjector.DerivedConstructorPointer<EntryWrapper>()) =>
+            ClassInjector.DerivedConstructorBody(this);
+        internal EntryWrapper(Stream target, long offset, long length) : this() =>
+            (Target, EntryOffset, EntryLength, target.Position) = (target, offset, length, offset);
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override int Read(Il2CppStructArray<byte> buffer, int offset, int count) =>
+            Target.Read(((Span<byte>)buffer)
+                .Slice(offset, Position >= EntryLength ? 0 : Position + count < EntryLength ? count : (int)(EntryLength - Position)));
+        public override long Seek(long offset, Il2CppSystem.IO.SeekOrigin origin) =>
+            Target.Seek(origin switch
+            {
+                Il2CppSystem.IO.SeekOrigin.End => EntryOffset + EntryLength + offset,
+                Il2CppSystem.IO.SeekOrigin.Begin => EntryOffset + offset,
+                Il2CppSystem.IO.SeekOrigin.Current => offset,
+                _ => throw new NotImplementedException()
+            }, SeekOrigin.Begin) - EntryOffset;
+
+        public override void Write(Il2CppStructArray<byte> buffer, int offset, int count) =>
+            throw new NotImplementedException();
+        public void SetLength(long value) =>
+            throw new NotImplementedException();
+        public override void Flush() => Target.Flush();
+        public override void Dispose() => Target.Dispose();
     }
     static partial class Hooks
     {
@@ -402,7 +452,6 @@ namespace SardineTail
             PreventRedirect = true;
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
             IOExtension.OverrideFigure(__instance.human);
-
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
@@ -461,7 +510,8 @@ namespace SardineTail
         internal static Plugin Instance;
         internal static ConfigEntry<bool> DevelopmentMode;
         private Harmony Patch;
-
+        static Plugin() =>
+            ClassInjector.RegisterTypeInIl2Cpp<EntryWrapper>();
         public override bool Unload() =>
             true.With(Patch.UnpatchSelf) && base.Unload();
     }
