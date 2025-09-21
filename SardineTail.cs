@@ -399,7 +399,7 @@ namespace SardineTail
             (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
                  BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
     }
-    public class EntryWrapper : Il2CppSystem.IO.Stream
+    public partial class EntryWrapper : Il2CppSystem.IO.Stream
     {
         Stream Target;
         public long EntryOffset { get; init; }
@@ -430,8 +430,6 @@ namespace SardineTail
             }, SeekOrigin.Begin) - EntryOffset;
 
         public override void Write(Il2CppStructArray<byte> buffer, int offset, int count) =>
-            throw new NotImplementedException();
-        public void SetLength(long value) =>
             throw new NotImplementedException();
         public override void Flush() => Target.Flush();
         public override void Dispose() => Target.Dispose();

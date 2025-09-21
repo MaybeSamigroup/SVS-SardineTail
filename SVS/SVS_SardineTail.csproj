@@ -93,7 +93,6 @@
 	<Target Name="Release" AfterTargets="Build">
 		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
 		<MakeDir Directories="..\Release\$(GameName)\UserData\plugins\SardineTail\packages"/>
-		<Copy SourceFiles="..\Resource\manifest" DestinationFiles="..\Release\$(GameName)\abdata\sv_abdata_99"/>
 		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\abdata"/>
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
 		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>

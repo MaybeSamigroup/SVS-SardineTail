@@ -215,7 +215,11 @@ namespace SardineTail
 
         internal static void InitializeFigureId() => FigureId = -1;
     }
-
+    public partial class EntryWrapper : Il2CppSystem.IO.Stream
+    {
+        public override void SetLength(long value) =>
+            throw new NotImplementedException();
+    }
     public partial class Plugin : BasePlugin
     {
         public const string Process = "SamabakeScramble";
