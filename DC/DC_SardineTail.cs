@@ -7,11 +7,12 @@ using UnityEngine;
 using Character;
 using HarmonyLib;
 using BepInEx.Unity.IL2CPP;
+using Il2CppInterop.Runtime.Runtime;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Fishbone;
 using CoastalSmell;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
-
 namespace SardineTail
 {
     internal abstract partial class ModPackage
@@ -118,6 +119,8 @@ namespace SardineTail
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
+        internal static unsafe Span<byte> AsSpan(this Il2CppStructArray<byte> array) =>
+            new Span<byte>(IntPtr.Add(array.Pointer, sizeof(Il2CppObject) + sizeof(void*) + sizeof(nuint)).ToPointer(), array.Length);
     }
 
     static partial class Hooks

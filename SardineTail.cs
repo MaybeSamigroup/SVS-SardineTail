@@ -418,7 +418,7 @@ namespace SardineTail
         public override bool CanSeek => true;
         public override bool CanWrite => false;
         public override int Read(Il2CppStructArray<byte> buffer, int offset, int count) =>
-            Target.Read(((Span<byte>)buffer)
+            Target.Read(buffer.AsSpan()
                 .Slice(offset, Position >= EntryLength ? 0 : Position + count < EntryLength ? count : (int)(EntryLength - Position)));
         public override long Seek(long offset, Il2CppSystem.IO.SeekOrigin origin) =>
             Target.Seek(origin switch
