@@ -153,6 +153,8 @@ namespace SardineTail
             Extension.Register<CharaMods, CoordMods>();
             Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);
             Extension<CharaMods, CoordMods>.OnPreprocessCoord += (data, mods) => mods.Apply(data);
+            Extension.OnLoadChara += CharaMods.Store;
+            Extension.OnLoadCoord += CoordMods.Store;
         }
     }
 }
