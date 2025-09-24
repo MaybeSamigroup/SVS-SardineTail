@@ -258,6 +258,9 @@ namespace SardineTail
                 .ForEach(entry => entry.Value.Apply(data.Accessory.parts[entry.Key]));
         }
 
+        internal static void Store(Human human) =>
+            Extension.Coord<CharaMods, CoordMods>(human, ToMods(human.coorde.nowCoordinate));
+
         internal static CoordMods ToMods(HumanDataCoordinate data) => new()
         {
             BodyMakeup = BodyMakeupMods.ToMod(data.BodyMakeup),
@@ -266,13 +269,6 @@ namespace SardineTail
             Clothes = ClothMods.ToMod(data.Clothes),
             Accessories = AccessoryMods.ToMod(data.Accessory)
         };
-
-        internal static void Store(Human human) =>
-            Store(ToMods(human.coorde.nowCoordinate), Extension.Coord<CharaMods, CoordMods>(human));
-
-        static void Store(CoordMods src, CoordMods dst) =>
-            (dst.BodyMakeup, dst.FaceMakeup, dst.Hairs, dst.Clothes, dst.Accessories) =
-                (src.BodyMakeup, src.FaceMakeup, src.Hairs, src.Clothes, src.Accessories);
     }
 
     public class EyeMods
@@ -382,7 +378,8 @@ namespace SardineTail
         public ModInfo Graphic { get; set; }
         public FaceMods Face { get; set; }
         public BodyMods Body { get; set; }
-        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; }
+        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; } =
+            Enum.GetValues<ChaFileDefine.CoordinateType>().ToDictionary(coordinateType => coordinateType, _ => new CoordMods());
         internal int FigureId = -1;
 
         public CharaMods Merge(CharaLimit limit, CharaMods mods) => new()
@@ -395,8 +392,7 @@ namespace SardineTail
             Coordinates = (limit & CharaLimit.Coorde) is CharaLimit.None ? Coordinates : mods.Coordinates,
         };
 
-        public CoordMods Get(int coordinateType) =>
-            Coordinates?.GetValueOrDefault((ChaFileDefine.CoordinateType)coordinateType) ?? new();
+        public CoordMods Get(int coordinateType) => Coordinates[(ChaFileDefine.CoordinateType)coordinateType];
 
         public CharaMods Merge(int coordinateType, CoordMods mods) => new()
         {
@@ -405,7 +401,7 @@ namespace SardineTail
             Body = Body,
             Face = Face,
             Graphic = Graphic,
-            Coordinates = (Coordinates ?? new()).Merge((ChaFileDefine.CoordinateType)coordinateType, mods)
+            Coordinates = Coordinates.Merge((ChaFileDefine.CoordinateType)coordinateType, mods)
         };
 
         internal void Apply(HumanData data)
@@ -417,20 +413,15 @@ namespace SardineTail
             Coordinates.Defaults().ForEach(entry => entry.Value.Apply(data.Coordinates[(int)entry.Key]));
         }
 
-        static Tuple<ChaFileDefine.CoordinateType, CoordMods> ToMod(ChaFileDefine.CoordinateType coordinateType, HumanDataCoordinate data) =>
-            new(coordinateType, CoordMods.ToMods(data));
-
-        internal static void Store(Human human) =>
-            Store(Extension.Chara<CharaMods, CoordMods>(human), human.data);
-
-        static void Store(CharaMods mods, HumanData data)
+        internal static void Store(Human human) => Extension.Chara<CharaMods, CoordMods>(human, new CharaMods()
         {
-            mods.Figure = ModInfo.Map[CatNo.bo_body].ToMod(mods.FigureId);
-            mods.Body = BodyMods.ToMod(data.Custom.Body);
-            mods.Face = FaceMods.ToMod(data.Custom.Face);
-            mods.Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(data.Graphic.RampID);
-            mods.Coordinates = Enum.GetValues<ChaFileDefine.CoordinateType>()
-                .Select(coordinateType => ToMod(coordinateType, data.Coordinates[(int)coordinateType])).ToDictionary();
-        }
+            Figure = Extension.Chara<CharaMods, CoordMods>(human).Figure,
+            Body = BodyMods.ToMod(human.data.Custom.Body),
+            Face = FaceMods.ToMod(human.data.Custom.Face),
+            Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(human.data.Graphic.RampID),
+            Coordinates = Enum.GetValues<ChaFileDefine.CoordinateType>().ToDictionary(
+                coordinateType => coordinateType,
+                coordinateType => CoordMods.ToMods(human.data.Coordinates[(int)coordinateType]))
+        });
     }
 }
