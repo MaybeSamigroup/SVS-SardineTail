@@ -378,8 +378,7 @@ namespace SardineTail
         public ModInfo Graphic { get; set; }
         public FaceMods Face { get; set; }
         public BodyMods Body { get; set; }
-        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; } =
-            Enum.GetValues<ChaFileDefine.CoordinateType>().ToDictionary(coordinateType => coordinateType, _ => new CoordMods());
+        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; }
         internal int FigureId = -1;
 
         public CharaMods Merge(CharaLimit limit, CharaMods mods) => new()
@@ -392,7 +391,8 @@ namespace SardineTail
             Coordinates = (limit & CharaLimit.Coorde) is CharaLimit.None ? Coordinates : mods.Coordinates,
         };
 
-        public CoordMods Get(int coordinateType) => Coordinates[(ChaFileDefine.CoordinateType)coordinateType];
+        public CoordMods Get(int coordinateType) =>
+            Coordinates.Defaults()[(ChaFileDefine.CoordinateType)coordinateType];
 
         public CharaMods Merge(int coordinateType, CoordMods mods) => new()
         {

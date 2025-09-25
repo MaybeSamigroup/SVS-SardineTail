@@ -132,10 +132,10 @@ namespace SardineTail
             value => (!value).Maybe(CheckFigure(NameToId[Current.text]));
 
         Action CheckFigure(int id) => () =>
-            (HumanExtension<CharaMods, CoordMods>.Chara.FigureId != id).Maybe(ApplyFigure(id));
+            (Extension.Chara<CharaMods,CoordMods>().FigureId != id).Maybe(ApplyFigure(id));
 
         Action ApplyFigure(int id) => () =>
-            (HumanExtension<CharaMods, CoordMods>.Chara.FigureId = id).With(Extension.HumanCustomReload);
+            (Extension.Chara<CharaMods,CoordMods>().FigureId = id).With(Extension.HumanCustomReload);
 
         Action<GameObject> ObserveParentEnable(GameObject parent) =>
             go => parent.With(UGUI.Cmp(ObserveOnEnable(go)));
@@ -194,7 +194,7 @@ namespace SardineTail
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
 
         internal static int CustomFigureId =>
-            (HumanExtension<CharaMods, CoordMods>.Chara.FigureId, HumanCustom.Instance.IsMale()) switch
+            (Extension.Chara<CharaMods, CoordMods>().FigureId, HumanCustom.Instance.IsMale()) switch
             {
                 (< ModInfo.MIN_ID, true) => 0,
                 (< ModInfo.MIN_ID, false) => 1,
