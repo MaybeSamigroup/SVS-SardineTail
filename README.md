@@ -2,16 +2,26 @@
 
 Fundamental plugin to develop soft mod for SamabakeScramble and modification loader for DigitalCraft.
 
-## Prerequisites
+## Prerequisites (SamabakeScramble)
 
 - [SVS-HF_Patch](https://github.com/ManlyMarco/SVS-HF_Patch)
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
-- [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 3.0.1/1.0.6 or later
 
-Confirmed working under SamabakeScramble 1.1.6 and DigitalCraft 2.0.0
+Confirmed working under SamabakeScramble 1.1.6
+
+## Prerequisites (DigitalCraft Standalone)
+
+- [BepInEx](https://github.com/BepInEx/BepInEx)
+  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #697 or later
+
+Confirmed working under DigitalCraft 2.0.0.
+
+## Prerequisites (Dependent BepInEx plugin)
+
+- [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
+  - 3.0.2/1.0.7 or later
 
 ## Installation
 
