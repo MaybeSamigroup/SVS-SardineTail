@@ -21,7 +21,7 @@ Confirmed working under DigitalCraft 2.0.0.
 ## Prerequisites (Dependent BepInEx plugin)
 
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 3.0.2/1.0.7 or later
+  - 3.1.2/1.1.8 or later
 
 ## Installation
 

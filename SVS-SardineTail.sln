@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AC_SardineTail", "AC\AC_SardineTail.csproj", "{5E08E6C3-26F4-24FF-6A4E-0ACD2CF44D2A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC_SardineTail", "DC\DC_SardineTail.csproj", "{B2EC74E9-C201-587C-7530-22BF71917B90}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SVS_SardineTail", "SVS\SVS_SardineTail.csproj", "{E52CE1EF-AF21-AAC0-3490-180C287C5B26}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5E08E6C3-26F4-24FF-6A4E-0ACD2CF44D2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E08E6C3-26F4-24FF-6A4E-0ACD2CF44D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E08E6C3-26F4-24FF-6A4E-0ACD2CF44D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E08E6C3-26F4-24FF-6A4E-0ACD2CF44D2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2EC74E9-C201-587C-7530-22BF71917B90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2EC74E9-C201-587C-7530-22BF71917B90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2EC74E9-C201-587C-7530-22BF71917B90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2EC74E9-C201-587C-7530-22BF71917B90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DB596A3C-4F55-41C0-BF8A-9B1A2A3B2FB9}
+	EndGlobalSection
+EndGlobal

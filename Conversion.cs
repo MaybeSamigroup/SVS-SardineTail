@@ -68,7 +68,7 @@ namespace SardineTail
             PreprocessManifest + ProcessEntry.Apply(stream).Apply(entries.With(ProcessHeader.Apply(stream)));
         Action<ConvertEntry> PreprocessManifest => mod =>
             mod.Values[Ktype.MainManifest] = mod.ToMainAssetBundle()
-                .Where(ManifestMap.ContainsKey).Select(bundle => ManifestMap[bundle]).FirstOrDefault("abdata");
+                .Where(ManifestMap.ContainsKey).Select(bundle => ManifestMap[bundle]).FirstOrDefault("0");
         Action<StreamWriter, Entry[]> ProcessHeader = (stream, entries) =>
             stream.WriteLine(string.Join(',', entries.Select(entry => entry.Index.ToString())));
         Action<StreamWriter, Entry[], ConvertEntry> ProcessEntry = (stream, entries, mod) =>
@@ -103,7 +103,7 @@ namespace SardineTail
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         internal static string ToBundlePath(string bundle) =>
-            Path.Combine([Paths.GameRootPath, "abdata", .. bundle.Split(Path.AltDirectorySeparatorChar)]);
+            Path.Combine([Paths.GameRootPath, AssetPath, .. bundle.Split(Path.AltDirectorySeparatorChar)]);
         static void Convert()
         {
             new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
@@ -162,7 +162,7 @@ namespace SardineTail
                 bundle => bundle,
                 bundle => manifestToBundles
                     .Where(entry => entry.Value.Contains(bundle))
-                    .Select(entry => entry.Key).FirstOrDefault("abdata"));
+                    .Select(entry => entry.Key).FirstOrDefault(AssetPath));
 
         static void Convert(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
             Convert(entries.Select(entry => new ConvertPackage(manifestMap, entry)));

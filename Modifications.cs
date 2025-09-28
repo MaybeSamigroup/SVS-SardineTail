@@ -259,7 +259,7 @@ namespace SardineTail
         }
 
         internal static void Store(Human human) =>
-            Extension.Coord<CharaMods, CoordMods>(human, ToMods(human.coorde.nowCoordinate));
+            Extension.Coord<CharaMods, CoordMods>(human, ToMods(human.coorde.Now));
 
         internal static CoordMods ToMods(HumanDataCoordinate data) => new()
         {

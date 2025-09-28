@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net6</TargetFramework>
-        <AssemblyName>SVS_SardineTail</AssemblyName>
+        <AssemblyName>AC_SardineTail</AssemblyName>
         <Description>Runtime mod loader for SamabakeScramble Character Creation</Description>
         <LangVersion>latest</LangVersion>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<GameName>SamabakeScramble</GameName>
+		<GameName>Aicomi</GameName>
         <GamePath>$([MSBuild]::GetRegistryValue('HKEY_CURRENT_USER\Software\ILLGAMES\$(GameName)','INSTALLDIR'))</GamePath>
         <DefineConstants>$(GameName)</DefineConstants>
     </PropertyGroup>
@@ -59,8 +59,12 @@
 			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Unity.TextMeshPro.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
-		<Reference Include="UniRx">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UniRx.dll</HintPath>
+		<Reference Include="R3">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\R3.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="R3.Unity">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\R3.Unity.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UniTask">
@@ -71,20 +75,16 @@
 			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Assembly-CSharp.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
-		<Reference Include="IL">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\IL.dll</HintPath>
+		<Reference Include="ILGLib">
+			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\ILGLib.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="CoastalSmell">
-			<HintPath>$(GamePath)\BepInEx\plugins\SVS_CoastalSmell.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\plugins\AC_CoastalSmell.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Fishbone">
-			<HintPath>$(GamePath)\BepInEx\plugins\SVS_Fishbone.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="VarietyOfScales">
-			<HintPath>$(GamePath)\BepInEx\plugins\SVS_VarietyOfScales.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\plugins\AC_Fishbone.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 	</ItemGroup>
@@ -94,7 +94,7 @@
 	<Target Name="Release" AfterTargets="Build">
 		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
 		<MakeDir Directories="..\Release\$(GameName)\UserData\plugins\SardineTail\packages"/>
-		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\abdata"/>
+		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\lib"/>
 		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
 		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>
 	</Target>

@@ -6,6 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using Character;
 using HarmonyLib;
+using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using Il2CppInterop.Runtime.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -13,6 +14,7 @@ using Fishbone;
 using CoastalSmell;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
+
 namespace SardineTail
 {
     internal abstract partial class ModPackage
@@ -136,9 +138,13 @@ namespace SardineTail
                 typeof(HumanManager.MaterialHelper).GetMethod(
                     nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
             ],
+            [nameof(LoadAssetWithoutTypePostfix)] = [
+                typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)])
+            ],
         };
     }
 
+    [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";

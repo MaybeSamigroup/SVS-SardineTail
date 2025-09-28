@@ -448,8 +448,13 @@ namespace SardineTail
             PreventRedirect = false;
         static void DisableRedirect() =>
             PreventRedirect = true;
+#if Aicomi
+        static void HumanBodyLoadPrefix(HumanBody __instance) =>
+            IOExtension.OverrideFigure(__instance._human);
+#else
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
             IOExtension.OverrideFigure(__instance.human);
+#endif
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
@@ -481,11 +486,9 @@ namespace SardineTail
         {
             [nameof(LoadAssetPostfix)] = [
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string), typeof(Il2CppSystem.Type)])
-            ],
-            [nameof(LoadAssetWithoutTypePostfix)] = [
-                typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)])
             ]
         };
+
         static void ApplyPrefixes(Harmony hi) =>
             Prefixes.Concat(SpecPrefixes).ForEach(entry => entry.Value.ForEach(method =>
                 hi.Patch(method, prefix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
@@ -497,12 +500,11 @@ namespace SardineTail
     }
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
-    [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.0.2";
+        public const string Version = "2.1.2";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
