@@ -1,6 +1,15 @@
 # SVS-SardineTail
 
-Fundamental plugin to develop soft mod for SamabakeScramble and modification loader for DigitalCraft.
+Fundamental plugin to develop soft mod for Aicomi, SamabakeScramble and modification loader for DigitalCraft.
+
+## Prerequisites (Aicomi)
+
+- [BepInEx](https://github.com/BepInEx/BepInEx)
+  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #738 or later
+- [BepInEx.ConfigurationManager](https://github.com/BepInEx/BepInEx.ConfigurationManager)
+  - IL2CPP version 18.4.1 or later
+
+Confirmed working under Aicomi 1.0.1.
 
 ## Prerequisites (SamabakeScramble)
 
