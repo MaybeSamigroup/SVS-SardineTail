@@ -302,6 +302,7 @@ namespace SardineTail
                     ? Packages[soft.PkgId].TranslateId(soft, id) : info?.PkgId == null ? id
                     : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
                     : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
+
         internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
             items.Length switch
             {
@@ -309,8 +310,13 @@ namespace SardineTail
                     ? modPkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
                 3 => Packages.TryGetValue(items[0], out var modPkg)
                     ? modPkg.GetAsset(items[1], items[2], type) : null,
+#if Aicomi
+                4 => Packages.TryGetValue(items[0], out var modPkg)
+                    ? IOExtension.PreprocessPrefab(modPkg.GetAsset(items[1], items[2], type)) : null,
+#else
                 4 => Packages.TryGetValue(items[0], out var modPkg)
                     ? modPkg.GetAsset(items[1], items[2], type) : null,
+#endif
                 _ => null
             };
         internal static UnityEngine.Object ToAsset(string[] items) =>
@@ -504,7 +510,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.2";
+        public const string Version = "2.1.3";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
