@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Text;
 using System.Text.Json;
 using System.Text.Unicode;
 using System.Text.Encodings.Web;
@@ -32,20 +31,18 @@ namespace SardineTail
     {
         public List<string> Bundles;
         public List<ConvertEntry> Entries;
-        Dictionary<string, string> ManifestMap;
-        public ConvertPackage(List<string> bundles, List<ConvertEntry> entries, Dictionary<string, string> manifestMap) =>
-            (Bundles, Entries, ManifestMap) = (bundles, entries, manifestMap);
+        public ConvertPackage(List<string> bundles, List<ConvertEntry> entries) =>
+            (Bundles, Entries) = (bundles, entries);
         public ConvertPackage(Dictionary<string, string> manifestMap, ConvertEntry entry) :
-            this(entry.Bundles.Where(bundle => !manifestMap.ContainsKey(bundle)).ToList(), [entry], manifestMap)
+            this(entry.Bundles.Where(bundle => !manifestMap.ContainsKey(bundle)).ToList(), [entry])
         { }
         public bool Intersect(ConvertPackage package) =>
             package.Bundles.Count == 0 ? Bundles.Count == 0 : package.Bundles.Any(Bundles.Contains);
         public ConvertPackage Merge(IEnumerable<ConvertPackage> packages) =>
             new(Bundles.Concat(packages.SelectMany(package => package.Bundles))
-                .Distinct().ToList(), Entries.Concat(packages.SelectMany(package => package.Entries)).ToList(), ManifestMap);
+                .Distinct().ToList(), Entries.Concat(packages.SelectMany(package => package.Entries)).ToList());
         internal void Archive() =>
             F.ApplyDisposable(Archive, new ZipArchive(File.OpenWrite(PackagePath), ZipArchiveMode.Create)).Try(Plugin.Instance.Log.LogError);
-
         void Archive(ZipArchive archive) =>
             archive.With(ArchiveBundles).With(ArchiveEntries);
         void ArchiveBundles(ZipArchive archive) =>
@@ -54,32 +51,35 @@ namespace SardineTail
             archive.CreateEntryFromFile(CategoryExtension.ToBundlePath(bundle), bundle, CompressionLevel.NoCompression);
         void ArchiveEntries(ZipArchive archive) =>
             ArchiveHardMigration(Entries.GroupBy(entry => entry.Category)
-                .ToDictionary(group => group.Key, group => ArchiveEntries(group)
-                    .ApplyDisposable(new StreamWriter(archive.CreateEntry($"{group.Key}.csv").Open(), new UTF8Encoding(false)))
+                .ToDictionary(group => group.Key, group => ArchiveEntries(group).Apply(archive)
                     .Try(Plugin.Instance.Log.LogError, out var hardmig) ? hardmig : new()))
                     .ApplyDisposable(archive.CreateEntry("hardmig.json").Open()).Try(Plugin.Instance.Log.LogError);
         Action<Stream> ArchiveHardMigration(Dictionary<CatNo, Dictionary<string, HardMigrationInfo>> hardmigs) =>
             stream => JsonSerializer.Serialize(stream, hardmigs, CategoryExtension.JsonOption);
-        Func<StreamWriter, Dictionary<string, HardMigrationInfo>> ArchiveEntries(IGrouping<CatNo, ConvertEntry> group) =>
-            stream => group.With(ProcessEntries(ToEntryWriter(CategoryExtension.All[group.Key].Entries, stream)))
+        Func<ZipArchive, Dictionary<string, HardMigrationInfo>> ArchiveEntries(IGrouping<CatNo, ConvertEntry> group) =>
+            archive => group.With(ProcessEntries(ToEntryWriter(CategoryExtension.All[group.Key].Entries, archive)))
                 .Select(entry => new Tuple<string, HardMigrationInfo>(entry.Id.ToString(),
-                    new() { ModId = $"{group.Key}.csv/{entry.Name}", Version = new(0, 0, 0) })).ToDictionary();
-        Action<ConvertEntry> ToEntryWriter(Entry[] entries, StreamWriter stream) =>
-            PreprocessManifest + ProcessEntry.Apply(stream).Apply(entries.With(ProcessHeader.Apply(stream)));
-        Action<ConvertEntry> PreprocessManifest => mod =>
-            mod.Values[Ktype.MainManifest] = mod.ToMainAssetBundle()
-#if SamabakeScramble
-                .Where(ManifestMap.ContainsKey).Select(bundle => ManifestMap[bundle])
-                    .FirstOrDefault(Plugin.AicomiConversion.Value ? "lib000_03" : "abdata");
-#else
-                .Where(ManifestMap.ContainsKey).Select(bundle => ManifestMap[bundle]).FirstOrDefault(CategoryExtension.MainManifest);
-#endif
-        Action<StreamWriter, Entry[]> ProcessHeader = (stream, entries) =>
-            stream.WriteLine(string.Join(',', entries.Select(entry => entry.Index.ToString())));
-        Action<StreamWriter, Entry[], ConvertEntry> ProcessEntry = (stream, entries, mod) =>
-            stream.WriteLine(string.Join(',', entries.Select(entry => mod.Values.GetValueOrDefault(entry.Index, entry.Default.FirstOrDefault("0")))));
+                    new() { ModId = $"{group.Key}/{entry.Name}", Version = new(0, 0, 0) })).ToDictionary();
+        Action<ConvertEntry> ToEntryWriter(Entry[] entries, ZipArchive archive) =>
+            ProcessEntry.Apply(archive).Apply(entries);
+        Action<ZipArchive, Entry[], ConvertEntry> ProcessEntry => (archive, entries, mod) =>
+            ArchiveValues(entries
+                .Where(entry => mod.Values.ContainsKey(entry.Index))
+                .Where(entry => !entry.Default.Contains(mod.Values[entry.Index]))
+                .ToDictionary(entry => entry.Index, entry => mod.Values[entry.Index]))
+                .ApplyDisposable(archive.CreateEntry($"{mod.Category}/{mod.Name}/values.json").Open())
+                .Try(Plugin.Instance.Log.LogInfo);
+        Action<Stream> ArchiveValues(Dictionary<Ktype, string> values) =>
+            stream => JsonSerializer.Serialize(stream, values, CategoryExtension.JsonOption);
+        Action<IEnumerable<ConvertEntry>> ProcessEntryNames =>
+            entries => entries.ForEach(entry => entry.Name = ConvertEntryName(entry.Name));
+        Func<string, string> ConvertEntryName =
+            input => Path.GetInvalidPathChars()
+                .Concat(Path.GetInvalidFileNameChars())
+                .Aggregate(input, (str, ch) => str.Replace(ch, ' '));
         Action<IEnumerable<ConvertEntry>> ProcessEntries(Action<ConvertEntry> writer) =>
-            entries => entries.GroupBy(entry => entry.Name).ForEach(dups => Process(dups, PreprocessModId(dups.Count()), writer));
+            entries => entries.With(ProcessEntryNames).GroupBy(entry => entry.Name)
+                .ForEach(dups => Process(dups, PreprocessModId(dups.Count()), writer));
         void Process(IEnumerable<ConvertEntry> entries, Action<int, ConvertEntry> preprocess, Action<ConvertEntry> writer) =>
             entries.ForEachIndex((mod, idx) => mod.With(preprocess.Apply(idx) + writer));
         Action<int, ConvertEntry> PreprocessModId(int count) =>
@@ -116,9 +116,7 @@ namespace SardineTail
                 .ForEach(path => Directory.Delete(path, true));
             new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
                 .ForEach(path => Directory.CreateDirectory(path));
-            All.Values.SelectMany(Convert)
-                .GroupBy(entry => entry.Invalid.Count > 0)
-                .ForEach(group => ForkInvalidAndValid(group.Key)(group));
+            ProcessManifest(All.Values.SelectMany(Convert));
             Plugin.HardmodConversion.Value = false;
         }
         static IEnumerable<ConvertEntry> Convert(Category category) =>
@@ -147,13 +145,8 @@ namespace SardineTail
         };
         static bool AbdataExists(string bundle) =>
             File.Exists(ToBundlePath(bundle));
-        static Action<IEnumerable<ConvertEntry>> ForkInvalidAndValid(bool value) => value ? Invalid : Convert;
-
-        static void Invalid(IEnumerable<ConvertEntry> entries) =>
-            entries.GroupBy(entry => entry.Category)
-                .ForEach(group => Invalid(Directory.CreateDirectory(Path.Combine(Plugin.InvalidPath, group.Key.ToString())), group));
-        static void Convert(IEnumerable<ConvertEntry> entries) =>
-            Convert(ToManifestMap(entries.Where(entry => entry.Id < 100)), entries.Where(entry => entry.Id >= 100));
+        static void ProcessManifest(IEnumerable<ConvertEntry> entries) =>
+            ProcessManifest(ToManifestMap(entries.Where(entry => entry.Id < 100)), entries.Where(entry => entry.Id >= 100));
 
         static Dictionary<string, string> ToManifestMap(IEnumerable<ConvertEntry> entries) =>
             ToManifestMap(
@@ -168,10 +161,27 @@ namespace SardineTail
                 bundle => manifestToBundles
                     .Where(entry => entry.Value.Contains(bundle))
                     .Select(entry => entry.Key).FirstOrDefault(MainManifest));
-
+        static Action<IEnumerable<ConvertEntry>> PreprocessManifest(Dictionary<string, string> manifestMap) => 
+            mods => mods.ForEach(
+                mod => mod.Values[Ktype.MainManifest] = mod.ToMainAssetBundle()
+                    .Where(manifestMap.ContainsKey).Select(bundle => manifestMap[bundle])
+                    .Where(manifestMap.ContainsKey).Select(bundle => manifestMap[bundle])
+                    .FirstOrDefault(MainManifest));
+        static void ProcessManifest(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
+            entries.With(PreprocessManifest(manifestMap))
+                .GroupBy(entry => entry.Invalid.Count == 0 && IsConvertable(entry))
+                .ForEach(group => ForkValidAndInvalid(group.Key)(manifestMap, group));
+#if SamabakeScramble
+        static bool IsConvertable(ConvertEntry mod) => !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Manifest);
+#else
+        static bool IsConvertable(ConvertEntry mod) => true;
+#endif
+        static Action<Dictionary<string, string>, IEnumerable<ConvertEntry>> ForkValidAndInvalid(bool value) => value ? Convert : Invalid;
+        static void Invalid(Dictionary<string, string> _, IEnumerable<ConvertEntry> entries) =>
+            entries.GroupBy(entry => entry.Category)
+                .ForEach(group => Invalid(Directory.CreateDirectory(Path.Combine(Plugin.InvalidPath, group.Key.ToString())), group));
         static void Convert(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
             Convert(entries.Select(entry => new ConvertPackage(manifestMap, entry)));
-
         static void Convert(IEnumerable<ConvertPackage> entries)
         {
             List<ConvertPackage> packages = new();

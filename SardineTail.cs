@@ -447,8 +447,13 @@ namespace SardineTail
         const string BodyPrefabF = "p_cf_sv_body_00";
         const string BodyTextureAB = "chara/body/bo_body_000_00.unity3d";
         const string BodyTexture = "cf_body_00_t";
+#if Aicomi
+        const string BodyShapeAnimeAB = "chara/list/customshape.unity3d";
+#else
         const string BodyShapeAnimeAB = "list/customshape.unity3d";
+#endif
         const string BodyShapeAnime = "cf_anmShapeBody";
+
         static bool PreventRedirect = false;
         static void EnableRedirect() =>
             PreventRedirect = false;
@@ -510,7 +515,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.3";
+        public const string Version = "2.1.4";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

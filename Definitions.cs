@@ -34,12 +34,6 @@ namespace SardineTail
 
     internal static partial class CategoryExtension
     {
-#if Aicomi
-        internal const string MainManifest = "lib000_03";
-#else
-        internal const string MainManifest = "abdata";
-#endif
-
         internal static string Normalize(string input) =>
             string.IsNullOrWhiteSpace(input) ? "0" : input.Trim();
 

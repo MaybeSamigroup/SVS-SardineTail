@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
+using BepInEx.Configuration;
 
 namespace SardineTail
 {
@@ -23,9 +24,18 @@ namespace SardineTail
         public override void SetLength(long value) =>
             throw new NotImplementedException();
     }
+    internal static partial class CategoryExtension
+    {
+        internal const string MainManifest = "abdata";
+    }
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
+        internal static ConfigEntry<bool> AicomiConversion;
         public const string Process = "SamabakeScramble";
+        void GameSpecificInitialize()
+        {
+            AicomiConversion = Config.Bind("General", "Enable aicomi oriented hardmod conversion.", false);
+        }
     }
 }

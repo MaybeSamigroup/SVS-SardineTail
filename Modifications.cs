@@ -415,7 +415,7 @@ namespace SardineTail
 
         internal static void Store(Human human) => Extension.Chara<CharaMods, CoordMods>(human, new CharaMods()
         {
-            Figure = Extension.Chara<CharaMods, CoordMods>(human).Figure,
+            Figure = ModInfo.Map[CatNo.bo_body].ToMod(Extension.Chara<CharaMods, CoordMods>(human).FigureId),
             Body = BodyMods.ToMod(human.data.Custom.Body),
             Face = FaceMods.ToMod(human.data.Custom.Face),
             Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(human.data.Graphic.RampID),

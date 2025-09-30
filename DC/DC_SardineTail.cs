@@ -143,7 +143,10 @@ namespace SardineTail
             ],
         };
     }
-
+    internal static partial class CategoryExtension
+    {
+        internal const string MainManifest = "abdata";
+    }
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
