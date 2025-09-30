@@ -173,7 +173,7 @@ namespace SardineTail
                 .ForEach(group => ForkValidAndInvalid(group.Key)(manifestMap, group));
 #if SamabakeScramble
         static bool IsConvertible(ConvertEntry mod) =>
-            !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Values[Ktype.MainManifest]);
+            !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Values.GetValueOrDefault(Ktype.MainManifest, MainManifest));
 #else
         static bool IsConvertible(ConvertEntry mod) => true;
 #endif
