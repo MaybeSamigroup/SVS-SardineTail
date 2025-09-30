@@ -135,7 +135,7 @@ namespace SardineTail
             Id = id,
             Name = info.Name,
             Category = category.Index,
-            Manifest = info.TryGetValue(Ktype.MainManifest, out var value) ? value : "0",
+            Manifest = info.TryGetValue(Ktype.MainManifest, out var value) ? value : MainManifest,
             Values = category.Entries
                 .Where(entry => Vtype.Name != entry.Value)
                 .Where(entry => info.ContainsKey(entry.Index))
@@ -169,12 +169,13 @@ namespace SardineTail
                     .FirstOrDefault(MainManifest));
         static void ProcessManifest(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
             entries.With(PreprocessManifest(manifestMap))
-                .GroupBy(entry => entry.Invalid.Count == 0 && IsConvertable(entry))
+                .GroupBy(entry => entry.Invalid.Count == 0 && IsConvertible(entry))
                 .ForEach(group => ForkValidAndInvalid(group.Key)(manifestMap, group));
 #if SamabakeScramble
-        static bool IsConvertable(ConvertEntry mod) => !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Manifest);
+        static bool IsConvertible(ConvertEntry mod) =>
+            !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Values[Ktype.MainManifest]);
 #else
-        static bool IsConvertable(ConvertEntry mod) => true;
+        static bool IsConvertible(ConvertEntry mod) => true;
 #endif
         static Action<Dictionary<string, string>, IEnumerable<ConvertEntry>> ForkValidAndInvalid(bool value) => value ? Convert : Invalid;
         static void Invalid(Dictionary<string, string> _, IEnumerable<ConvertEntry> entries) =>
