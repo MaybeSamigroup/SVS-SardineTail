@@ -412,16 +412,18 @@ namespace SardineTail
             Face.Defaults().Apply(data.Custom.Face);
             Coordinates.Defaults().ForEach(entry => entry.Value.Apply(data.Coordinates[(int)entry.Key]));
         }
-
-        internal static void Store(Human human) => Extension.Chara<CharaMods, CoordMods>(human, new CharaMods()
+        internal static void Store(Human human) =>
+            Extension.Chara<CharaMods, CoordMods>(human, ToMods(human, Extension.Chara<CharaMods, CoordMods>(human)));
+        static CharaMods ToMods(Human human, CharaMods mods) => new CharaMods()
         {
-            Figure = ModInfo.Map[CatNo.bo_body].ToMod(Extension.Chara<CharaMods, CoordMods>(human).FigureId),
+            FigureId = mods.FigureId,
+            Figure = ModInfo.Map[CatNo.bo_body].ToMod(mods.FigureId),
             Body = BodyMods.ToMod(human.data.Custom.Body),
             Face = FaceMods.ToMod(human.data.Custom.Face),
             Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(human.data.Graphic.RampID),
             Coordinates = Enum.GetValues<ChaFileDefine.CoordinateType>().ToDictionary(
                 coordinateType => coordinateType,
                 coordinateType => CoordMods.ToMods(human.data.Coordinates[(int)coordinateType]))
-        });
+        };
     }
 }

@@ -32,51 +32,51 @@
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Il2Cppmscorlib">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Il2Cppmscorlib.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Il2Cppmscorlib.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.CoreModule.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.CoreModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.AssetBundleModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.AssetBundleModule.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.AssetBundleModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.ImageConversionModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.UI">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.UI.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.UI.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.TextRenderingModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.TextRenderingModule.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.TextRenderingModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.TextMeshPro">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Unity.TextMeshPro.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Unity.TextMeshPro.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="R3">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\R3.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\R3.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="R3.Unity">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\R3.Unity.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\R3.Unity.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="UniTask">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UniTask.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UniTask.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Assembly-CSharp">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Assembly-CSharp.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Assembly-CSharp.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="ILGLib">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\ILGLib.dll</HintPath>
+			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\ILGLib.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="CoastalSmell">
