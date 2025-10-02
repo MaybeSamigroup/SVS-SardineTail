@@ -58,6 +58,9 @@ Acquire a SardineTail package from a trusted source and place it in the `sardine
 **For mod developers:**  
 Refer to the [package specification](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki).
 
+**For mod developers who are impatient:**
+Refer to the [Tutorial](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki/Quick-and-Rough-Modding-Tutorial-with-SardineTail)
+
 ## How to Use in DigitalCraft
 
 Please follow the [installation instructions](https://github.com/MaybeSamigroup/SVS-Fishbone).
