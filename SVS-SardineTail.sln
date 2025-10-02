@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AC_SardineTail", "AC\AC_Sar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC_SardineTail", "DC\DC_SardineTail.csproj", "{B2EC74E9-C201-587C-7530-22BF71917B90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StpBuilder", "StpBuilder\StpBuilder.csproj", "{B0CDB6CB-81CD-7887-01D8-FC89430C2437}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SVS_SardineTail", "SVS\SVS_SardineTail.csproj", "{E52CE1EF-AF21-AAC0-3490-180C287C5B26}"
 EndProject
 Global
@@ -22,6 +24,10 @@ Global
 		{B2EC74E9-C201-587C-7530-22BF71917B90}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2EC74E9-C201-587C-7530-22BF71917B90}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2EC74E9-C201-587C-7530-22BF71917B90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0CDB6CB-81CD-7887-01D8-FC89430C2437}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0CDB6CB-81CD-7887-01D8-FC89430C2437}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0CDB6CB-81CD-7887-01D8-FC89430C2437}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0CDB6CB-81CD-7887-01D8-FC89430C2437}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E52CE1EF-AF21-AAC0-3490-180C287C5B26}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -31,6 +37,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {DB596A3C-4F55-41C0-BF8A-9B1A2A3B2FB9}
+		SolutionGuid = {4FCA9AE1-4276-4216-B3B6-7B0F1D98E082}
 	EndGlobalSection
 EndGlobal

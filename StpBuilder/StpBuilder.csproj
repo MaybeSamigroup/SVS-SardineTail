@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6</TargetFramework>
+        <AssemblyName>StpBuilder</AssemblyName>
+        <Description>Sardine Tail Package builder</Description>
+        <LangVersion>latest</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <Target Name="Release" AfterTargets="Build">
+		<ItemGroup>
+			<Binaries Include="$(OutputPath)\*.dll"/>
+			<Binaries Include="$(OutputPath)\*.exe"/>
+			<Binaries Include="$(OutputPath)\*.runtimeconfig.json"/>
+		</ItemGroup>
+		<Copy SourceFiles="@(Binaries)" DestinationFolder="..\Release\$(AssemblyName)"/>
+        <ZipDirectory SourceDirectory="..\Release\$(AssemblyName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>
+    </Target>
+	<Target Name="CleanRelease" AfterTargets="Clean">
+		<RemoveDir Directories="..\Release\$(AssemblyName)"/>
+		<Delete Files="..\$(AssemblyName).zip"/>
+	</Target>
+</Project>
