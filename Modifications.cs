@@ -53,9 +53,10 @@ namespace SardineTail
         public void Apply(HumanDataHair data)
         {
             data.glossId = ModInfo.Map[CatNo.mt_hairgloss].ToId(HairGloss, data.glossId);
-            Hairs.Defaults().Select(entry =>
-                data.parts[(int)entry.Key].id = ModInfo.Map[ToCategoryNo(entry.Key)].ToId(entry.Value, data.parts[(int)entry.Key].id)
-            ).ToList();
+            Hairs.Defaults().ForEach(entry =>
+                data.parts[(int)entry.Key].id = data.parts[(int)entry.Key].bundleId =
+                    ModInfo.Map[ToCategoryNo(entry.Key)].ToId(entry.Value, data.parts[(int)entry.Key].id)
+            );
         }
 
         public static HairsMods ToMods(HumanDataHair data) => new()
