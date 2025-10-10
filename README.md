@@ -58,6 +58,8 @@ Acquire a SardineTail package from a trusted source and place it in the `sardine
 **For mod developers:**  
 Refer to the [package specification](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki).
 
+External tool to make stp from development package is also [available](https://github.com/MaybeSamigroup/SVS-SardineTail/releases/download/2.1.5/StpBuilder.zip).
+
 **For mod developers who are impatient:**
 Refer to the [Tutorial](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki/Quick-and-Rough-Modding-Tutorial-with-SardineTail)
 
