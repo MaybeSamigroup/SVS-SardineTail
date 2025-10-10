@@ -4,10 +4,10 @@ Fundamental plugin to develop soft mod for Aicomi, SamabakeScramble and modifica
 
 ## Prerequisites (Aicomi)
 
-- [BepInEx](https://github.com/BepInEx/BepInEx)
-  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #738 or later
-- [BepInEx.ConfigurationManager](https://github.com/BepInEx/BepInEx.ConfigurationManager)
-  - IL2CPP version 18.4.1 or later
+- [AC-HF_Patch](https://github.com/ManlyMarco/AC-HF_Patch)
+  - Message Center
+  - BepInEx.ConfigurationManager
+  - SVS_BepisPlugins
 
 Confirmed working under Aicomi 1.0.1.
 
@@ -30,7 +30,7 @@ Confirmed working under DigitalCraft 2.0.0.
 ## Prerequisites (Dependent BepInEx plugin)
 
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 3.1.3/1.1.9 or later
+  - 3.1.5/1.1.9 or later
 
 ## Installation
 
