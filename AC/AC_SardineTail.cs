@@ -2,20 +2,28 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
+using Character;
+using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
-using UnityEngine;
 using CoastalSmell;
 
 namespace SardineTail
 {
     static partial class Hooks
     {
-        static void IsLoadAssetBundleInternalLoadedPrefix(string bundle, string manifest) =>
-            Plugin.Instance.Log.LogInfo($"{bundle}.{manifest}");
+        static void MaterialHelperLoadPatchMaterialPostfix() =>
+            ModPackage.InitializePackages(Paths.GameRootPath);
 
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
-        static Dictionary<string, MethodInfo[]> SpecPostfixes => new();
+        static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
+        {
+            [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
+                typeof(HumanManager.MaterialHelper).GetMethod(
+                    nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(string)])
+            ]
+        };
     }
     internal static partial class CategoryExtension
     {

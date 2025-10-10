@@ -16,7 +16,7 @@ namespace SardineTail
 {
     class ConvertEntry
     {
-        public string Name;
+        public string Name { get; set; }
         public int Id { get; set; }
         public CatNo Category { get; set; }
         public string Manifest { get; set; } = "0";
@@ -68,7 +68,7 @@ namespace SardineTail
                 .Where(entry => !entry.Default.Contains(mod.Values[entry.Index]))
                 .ToDictionary(entry => entry.Index, entry => mod.Values[entry.Index]))
                 .ApplyDisposable(archive.CreateEntry($"{mod.Category}/{mod.Name}/values.json").Open())
-                .Try(Plugin.Instance.Log.LogInfo);
+                .Try(Plugin.Instance.Log.LogError);
         Action<Stream> ArchiveValues(Dictionary<Ktype, string> values) =>
             stream => JsonSerializer.Serialize(stream, values, CategoryExtension.JsonOption);
         Action<IEnumerable<ConvertEntry>> ProcessEntryNames =>
@@ -161,19 +161,18 @@ namespace SardineTail
                 bundle => manifestToBundles
                     .Where(entry => entry.Value.Contains(bundle))
                     .Select(entry => entry.Key).FirstOrDefault(MainManifest));
-        static Action<IEnumerable<ConvertEntry>> PreprocessManifest(Dictionary<string, string> manifestMap) => 
-            mods => mods.ForEach(
-                mod => mod.Values[Ktype.MainManifest] = mod.ToMainAssetBundle()
-                    .Where(manifestMap.ContainsKey).Select(bundle => manifestMap[bundle])
-                    .Where(manifestMap.ContainsKey).Select(bundle => manifestMap[bundle])
-                    .FirstOrDefault(MainManifest));
+        static Func<ConvertEntry, ConvertEntry> PreprocessManifest(Dictionary<string, string> manifestMap) =>
+            entry => entry.With(() => entry.Values[Ktype.MainManifest] =
+                 entry.ToMainAssetBundle().Where(manifestMap.ContainsKey)
+                    .Select(bundle => manifestMap[bundle]).FirstOrDefault(MainManifest));
         static void ProcessManifest(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
-            entries.With(PreprocessManifest(manifestMap))
+            entries.Select(PreprocessManifest(manifestMap))
                 .GroupBy(entry => entry.Invalid.Count == 0 && IsConvertible(entry))
                 .ForEach(group => ForkValidAndInvalid(group.Key)(manifestMap, group));
 #if SamabakeScramble
         static bool IsConvertible(ConvertEntry mod) =>
-            !Plugin.AicomiConversion.Value || MainManifest.Equals(mod.Values.GetValueOrDefault(Ktype.MainManifest, MainManifest));
+            !Plugin.AicomiConversion.Value || MainManifest
+                .Equals(mod.Values.GetValueOrDefault(Ktype.MainManifest, MainManifest));
 #else
         static bool IsConvertible(ConvertEntry mod) => true;
 #endif

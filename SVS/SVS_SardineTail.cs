@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using Character;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using BepInEx.Configuration;
@@ -10,10 +11,15 @@ namespace SardineTail
 {
     static partial class Hooks
     {
+        static void MaterialHelperLoadPatchMaterialPostfix() =>
+            ModPackage.InitializePackages(Paths.GameRootPath);
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
-
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
         {
+            [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
+                typeof(HumanManager.MaterialHelper).GetMethod(
+                    nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(string)])
+            ],
             [nameof(LoadAssetWithoutTypePostfix)] = [
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)])
             ],

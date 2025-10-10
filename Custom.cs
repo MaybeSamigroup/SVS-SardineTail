@@ -240,7 +240,6 @@ namespace SardineTail
             Extension.PrepareSaveChara += IOExtension.SaveCustomChara;
             Extension.PrepareSaveCoord += IOExtension.SaveCustomCoord;
 
-            ModPackage.InitializePackages(Paths.GameRootPath);
             CategoryExtension.Initialize();
         }
     }
