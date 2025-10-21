@@ -181,10 +181,8 @@ namespace SardineTail
             info != null &&
             info.TryGetValue(Ktype.MainAB, out var bundle) &&
             info.TryGetValue(Ktype.MainData, out var asset) &&
-            info.TryGetValue(Ktype.MainManifest, out var manifest)
-                ? ToNormalData(ToBodyAsset(bundle, $"{asset}_Nml", manifest,
-                    Il2CppInterop.Runtime.Il2CppType.Of<NormalData>()))
-                : null;
+            Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
+
         internal static UnityEngine.Object ToBodyPrefab() =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),

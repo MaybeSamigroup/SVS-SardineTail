@@ -308,6 +308,16 @@ namespace SardineTail
                     ? Packages[soft.PkgId].TranslateId(soft, id) : info?.PkgId == null ? id
                     : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
                     : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
+        static NormalData ToNormalData(UnityEngine.Object asset) =>
+            asset is null ? null : new NormalData(asset.Pointer);
+        internal static NormalData ToNormalData(string[] items) =>
+            items.Length switch
+            {
+                4 => Packages.TryGetValue(items[0], out var modPkg)
+                    ? ToNormalData(modPkg.GetAsset(items[1], items[2],
+                        Il2CppInterop.Runtime.Il2CppType.Of<NormalData>())) : null,
+                _ => null
+            };
         internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
             items.Length switch
             {
@@ -404,8 +414,6 @@ namespace SardineTail
     {
         static string GameTag;
         static int FigureId = -1;
-        static NormalData ToNormalData(UnityEngine.Object asset) =>
-            asset is null ? null : new NormalData(asset.Pointer);
         internal static void OverrideFigure(Human human) =>
             (GameTag, FigureId) = (human.data.Tag, Extension.Chara<CharaMods, CoordMods>(human).FigureId);
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
@@ -536,7 +544,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.9";
+        public const string Version = "2.1.10";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

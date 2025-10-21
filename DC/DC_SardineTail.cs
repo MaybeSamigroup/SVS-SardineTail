@@ -111,9 +111,8 @@ namespace SardineTail
         static NormalData ToBodyNormal(ListInfoBase info) =>
             info != null &&
             info.TryGetValue(Ktype.MainAB, out var bundle) &&
-            info.TryGetValue(Ktype.MainData, out var asset)
-                ? ToNormalData(ToBodyAsset(bundle, asset,
-                    Il2CppInterop.Runtime.Il2CppType.Of<NormalData>())) : null;
+            info.TryGetValue(Ktype.MainData, out var asset) &&
+            Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
 
         internal static UnityEngine.Object ToBodyPrefab() =>
             (FigureId < ModInfo.MIN_ID) ? null :

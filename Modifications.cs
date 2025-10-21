@@ -412,7 +412,8 @@ namespace SardineTail
             data.Graphic.RampID = ModInfo.Map[CatNo.mt_ramp].ToId(Graphic, data.Graphic.RampID);
             Body.Defaults().Apply(data.Custom.Body);
             Face.Defaults().Apply(data.Custom.Face);
-            Coordinates.Defaults().ForEach(entry => entry.Value.Apply(data.Coordinates[entry.Key]));
+            Coordinates.Defaults(data.Coordinates.Count)
+                .ForEach(entry => entry.Value.Apply(data.Coordinates[entry.Key]));
         }
 
         internal static void Store(Human human) =>
