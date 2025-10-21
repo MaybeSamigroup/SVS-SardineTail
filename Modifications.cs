@@ -275,12 +275,14 @@ namespace SardineTail
     public class EyeMods
     {
         public ModInfo Eye { get; set; }
+        public ModInfo Pupil { get; set; }
         public ModInfo Gradation { get; set; }
         public Dictionary<int, ModInfo> Highlights { get; set; }
 
         internal void Apply(HumanDataFace.PupilInfo data)
         {
             data.id = ModInfo.Map[CatNo.mt_eye].ToId(Eye, data.id);
+            data.overId = ModInfo.Map[CatNo.mt_eyepipil].ToId(Eye, data.id);
             data.gradMaskId = ModInfo.Map[CatNo.mt_eye_gradation].ToId(Gradation, data.gradMaskId);
             Highlights.Defaults(data.highlightInfos.Count).ForEach(entry =>
                 data.highlightInfos[entry.Key].id = ModInfo.Map[CatNo.mt_eye_hi_up].ToId(entry.Value, data.highlightInfos[entry.Key].id));
@@ -292,6 +294,7 @@ namespace SardineTail
         internal static EyeMods ToMod(HumanDataFace.PupilInfo data) => new()
         {
             Eye = ModInfo.Map[CatNo.mt_eye].ToMod(data.id),
+            Pupil = ModInfo.Map[CatNo.mt_eyepipil].ToMod(data.overId),
             Gradation = ModInfo.Map[CatNo.mt_eye_gradation].ToMod(data.gradMaskId),
             Highlights = data.highlightInfos.Select(ToMod).Where(item => item.Item2 != null).ToDictionary(),
         };
@@ -371,17 +374,15 @@ namespace SardineTail
             Underhair = ModInfo.Map[CatNo.mt_underhair].ToMod(data.underhairId)
         };
     }
-
-    [Extension<CharaMods, CoordMods>(Plugin.Name, "modifications.json")]
+    [Extension<CharaMods, CoordMods>(Plugin.Name, "mods.json")]
     public class CharaMods : CharacterExtension<CharaMods>, ComplexExtension<CharaMods, CoordMods>
     {
         public ModInfo Figure { get; set; }
         public ModInfo Graphic { get; set; }
         public FaceMods Face { get; set; }
         public BodyMods Body { get; set; }
-        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; }
+        public Dictionary<int, CoordMods> Coordinates { get; set; }
         internal int FigureId = -1;
-
         public CharaMods Merge(CharaLimit limit, CharaMods mods) => new()
         {
             FigureId = (limit & CharaLimit.Body) is CharaLimit.None ? FigureId : mods.FigureId,
@@ -393,7 +394,7 @@ namespace SardineTail
         };
 
         public CoordMods Get(int coordinateType) =>
-            Coordinates.Defaults()[(ChaFileDefine.CoordinateType)coordinateType];
+            Coordinates.Defaults().GetValueOrDefault(coordinateType, new ());
 
         public CharaMods Merge(int coordinateType, CoordMods mods) => new()
         {
@@ -402,7 +403,7 @@ namespace SardineTail
             Body = Body,
             Face = Face,
             Graphic = Graphic,
-            Coordinates = Coordinates.Merge((ChaFileDefine.CoordinateType)coordinateType, mods)
+            Coordinates = Coordinates.Merge(coordinateType, mods)
         };
 
         internal void Apply(HumanData data)
@@ -411,10 +412,12 @@ namespace SardineTail
             data.Graphic.RampID = ModInfo.Map[CatNo.mt_ramp].ToId(Graphic, data.Graphic.RampID);
             Body.Defaults().Apply(data.Custom.Body);
             Face.Defaults().Apply(data.Custom.Face);
-            Coordinates.Defaults().ForEach(entry => entry.Value.Apply(data.Coordinates[(int)entry.Key]));
+            Coordinates.Defaults().ForEach(entry => entry.Value.Apply(data.Coordinates[entry.Key]));
         }
+
         internal static void Store(Human human) =>
             Extension.Chara<CharaMods, CoordMods>(human, ToMods(human, Extension.Chara<CharaMods, CoordMods>(human)));
+
         static CharaMods ToMods(Human human, CharaMods mods) => new CharaMods()
         {
             FigureId = mods.FigureId,
@@ -422,9 +425,24 @@ namespace SardineTail
             Body = BodyMods.ToMod(human.data.Custom.Body),
             Face = FaceMods.ToMod(human.data.Custom.Face),
             Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(human.data.Graphic.RampID),
-            Coordinates = Enum.GetValues<ChaFileDefine.CoordinateType>().ToDictionary(
-                coordinateType => coordinateType,
-                coordinateType => CoordMods.ToMods(human.data.Coordinates[(int)coordinateType]))
+            Coordinates = human.data.Coordinates.Index().ToDictionary(tuple => tuple.Item2, tuple => CoordMods.ToMods(tuple.Item1))
+        };
+    }
+    public class LegacyCharaMods
+    {
+        public ModInfo Figure { get; set; }
+        public ModInfo Graphic { get; set; }
+        public FaceMods Face { get; set; }
+        public BodyMods Body { get; set; }
+        public Dictionary<ChaFileDefine.CoordinateType, CoordMods> Coordinates { get; set; }
+
+        public static implicit operator CharaMods(LegacyCharaMods mods) => new()
+        {
+            Figure = mods.Figure,
+            Graphic = mods.Graphic,
+            Face = mods.Face,
+            Body = mods.Body,
+            Coordinates = mods.Coordinates.ToDictionary(entry => (int)entry.Key, entry => entry.Value)
         };
     }
 }

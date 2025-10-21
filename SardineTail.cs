@@ -36,12 +36,12 @@ namespace SardineTail
         static KeysList ResolveKeys(this Category category) =>
             new KeysList()
                 .With(s => s.Add(Ktype.ID))
-                .With(s => category.Entries.Do(entry => s.Add(entry.Index)));
+                .With(s => category.Entries.ForEach(entry => s.Add(entry.Index)));
 
         static ValsList ResolveValues(this Category category, Values values) =>
             new ValsList()
                 .With(s => s.Add(category.Index.AssignId().ToString()))
-                .With(s => category.Entries.Do(entry => s.Add(values[entry.Index])));
+                .With(s => category.Entries.ForEach(entry => s.Add(values[entry.Index])));
 
         internal static ListInfoBase Resolve(this Category category, Values values) =>
             new ListInfoBase((int)category.Index, 0, new KeysDefs(category.ResolveKeys().Pointer), category.ResolveValues(values));
@@ -250,7 +250,7 @@ namespace SardineTail
         internal readonly Dictionary<string, AssetBundle> Cache = new();
         internal Dictionary<Version, Dictionary<string, string>> SoftMigrations = new();
         internal void LoadHardMigrations(Dictionary<CatNo, Dictionary<int, HardMigrationInfo>> info) =>
-            info.Do(entry => entry.Value.Do(subentry =>
+            info.ForEach(entry => entry.Value.ForEach(subentry =>
                 RegisterHardMigration(entry.Key, subentry.Key, new ModInfo()
                 {
                     PkgVersion = subentry.Value.Version,
@@ -277,7 +277,7 @@ namespace SardineTail
         UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
             GetAssetBundle(bundle).LoadAsset(asset, type);
         internal void Unload() =>
-            Cache.With(cache => cache.Values.Do(item => item.Unload(true))).Clear();
+            Cache.With(cache => cache.Values.ForEach(item => item.Unload(true))).Clear();
         internal static Func<string[], IEnumerable<Version>> ToVersion =>
             items => items.Length switch
             {
@@ -515,7 +515,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.7";
+        public const string Version = "2.1.8";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

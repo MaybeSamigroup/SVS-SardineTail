@@ -6,6 +6,7 @@ using Character;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using BepInEx.Configuration;
+using CoastalSmell;
 
 namespace SardineTail
 {
@@ -32,7 +33,10 @@ namespace SardineTail
     }
     internal static partial class CategoryExtension
     {
+        internal const string AssetPath = "abdata";
         internal const string MainManifest = "abdata";
+        internal static void Initialize() =>
+            Plugin.HardmodConversion.Value.Maybe(Util<Manager.Game>.Hook.Apply(Convert).Apply(F.DoNothing));
     }
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin

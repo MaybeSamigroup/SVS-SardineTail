@@ -232,6 +232,8 @@ namespace SardineTail
                 .Translate<CharaMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
             Extension.OnPreprocessCoord += Extension<CharaMods, CoordMods>
                 .Translate<CoordMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
+            Extension.OnPreprocessChara += Extension<CharaMods, CoordMods>
+                .Translate<LegacyCharaMods>(Path.Combine(Name, "modifications.json"), mods => mods);
 
             Extension.Register<CharaMods, CoordMods>();
             Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);

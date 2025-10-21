@@ -103,13 +103,11 @@ namespace SardineTail
     }
     internal static partial class CategoryExtension
     {
-        internal static void Initialize() =>
-            Plugin.HardmodConversion.Value.Maybe(Util<Manager.Game>.Hook.Apply(Convert).Apply(F.DoNothing));
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         internal static string ToBundlePath(string bundle) =>
-            Path.Combine([Paths.GameRootPath, MainManifest, .. bundle.Split(Path.AltDirectorySeparatorChar)]);
-        static void Convert()
+            Path.Combine([Paths.GameRootPath, AssetPath, .. bundle.Split(Path.AltDirectorySeparatorChar)]);
+        internal static void Convert()
         {
             new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
                 .Where(Directory.Exists)
@@ -146,7 +144,7 @@ namespace SardineTail
         static bool AbdataExists(string bundle) =>
             File.Exists(ToBundlePath(bundle));
         static void ProcessManifest(IEnumerable<ConvertEntry> entries) =>
-            ProcessManifest(ToManifestMap(entries.Where(entry => entry.Id < 100)), entries.Where(entry => entry.Id >= 100));
+            ProcessManifest(ToManifestMap(entries.Where(entry => entry.Id < 500)), entries.Where(entry => entry.Id >= 500));
 
         static Dictionary<string, string> ToManifestMap(IEnumerable<ConvertEntry> entries) =>
             ToManifestMap(

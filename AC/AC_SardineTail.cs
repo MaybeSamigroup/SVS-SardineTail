@@ -16,18 +16,27 @@ namespace SardineTail
         static void MaterialHelperLoadPatchMaterialPostfix() =>
             ModPackage.InitializePackages(Paths.GameRootPath);
 
+        static void ChaListControlLoadListInfoAllPostfix() =>
+            Plugin.HardmodConversion.Value.Maybe(CategoryExtension.Convert);
+
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
         {
             [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
                 typeof(HumanManager.MaterialHelper).GetMethod(
                     nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(string)])
+            ],
+            [nameof(ChaListControlLoadListInfoAllPostfix)] = [
+                typeof(ChaListControl).GetMethod(
+                    nameof(ChaListControl.LoadListInfoAll), 0, [])
             ]
         };
     }
     internal static partial class CategoryExtension
     {
+        internal const string AssetPath = "lib";
         internal const string MainManifest = "lib000_03";
+        internal static void Initialize() { } 
     }
     internal static partial class IOExtension
     {
