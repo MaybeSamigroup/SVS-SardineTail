@@ -282,7 +282,7 @@ namespace SardineTail
         internal void Apply(HumanDataFace.PupilInfo data)
         {
             data.id = ModInfo.Map[CatNo.mt_eye].ToId(Eye, data.id);
-            data.overId = ModInfo.Map[CatNo.mt_eyepipil].ToId(Eye, data.id);
+            data.overId = ModInfo.Map[CatNo.mt_eyepipil].ToId(Eye, data.overId);
             data.gradMaskId = ModInfo.Map[CatNo.mt_eye_gradation].ToId(Gradation, data.gradMaskId);
             Highlights.Defaults(data.highlightInfos.Count).ForEach(entry =>
                 data.highlightInfos[entry.Key].id = ModInfo.Map[CatNo.mt_eye_hi_up].ToId(entry.Value, data.highlightInfos[entry.Key].id));

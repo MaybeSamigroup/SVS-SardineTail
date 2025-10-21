@@ -7,9 +7,11 @@ using UnityEngine.UI;
 #if Aicomi
 using R3;
 using R3.Triggers;
+using ILLGAMES.Unity;
 #else
 using UniRx;
 using UniRx.Triggers;
+using ILLGames.Unity;
 #endif
 using TMPro;
 using Character;
@@ -175,7 +177,14 @@ namespace SardineTail
             info.TryGetValue(Ktype.MainManifest, out var manifest)
                 ? ToBodyAsset(bundle, asset, manifest, type)
                 : null;
-
+        static NormalData ToBodyNormal(ListInfoBase info) =>
+            info != null &&
+            info.TryGetValue(Ktype.MainAB, out var bundle) &&
+            info.TryGetValue(Ktype.MainData, out var asset) &&
+            info.TryGetValue(Ktype.MainManifest, out var manifest)
+                ? ToNormalData(ToBodyAsset(bundle, $"{asset}_Nml", manifest,
+                    Il2CppInterop.Runtime.Il2CppType.Of<NormalData>()))
+                : null;
         internal static UnityEngine.Object ToBodyPrefab() =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
@@ -190,6 +199,10 @@ namespace SardineTail
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
+
+        internal static NormalData ToBodyNormal(NormalData original) =>
+            (FigureId < ModInfo.MIN_ID) ? original :
+            ToBodyNormal(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId)) ?? original;
 
         internal static int CustomFigureId =>
             (Extension.Chara<CharaMods, CoordMods>().FigureId, HumanCustom.Instance.IsMale()) switch

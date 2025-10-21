@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Character;
+using ILLGames.Unity;
 using HarmonyLib;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
@@ -107,6 +108,13 @@ namespace SardineTail
                 ? ToBodyAsset(bundle, asset, type)
                 : null;
 
+        static NormalData ToBodyNormal(ListInfoBase info) =>
+            info != null &&
+            info.TryGetValue(Ktype.MainAB, out var bundle) &&
+            info.TryGetValue(Ktype.MainData, out var asset)
+                ? ToNormalData(ToBodyAsset(bundle, asset,
+                    Il2CppInterop.Runtime.Il2CppType.Of<NormalData>())) : null;
+
         internal static UnityEngine.Object ToBodyPrefab() =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
@@ -121,6 +129,11 @@ namespace SardineTail
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
                 Ktype.ShapeAnimeAB, Ktype.ShapeAnime, Il2CppInterop.Runtime.Il2CppType.Of<TextAsset>());
+
+        internal static NormalData ToBodyNormal(NormalData original) =>
+            (FigureId < ModInfo.MIN_ID) ? original :
+            ToBodyNormal(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId)) ?? original;
+
         internal static unsafe Span<byte> AsSpan(this Il2CppStructArray<byte> array) =>
             new Span<byte>(IntPtr.Add(array.Pointer, sizeof(Il2CppObject) + sizeof(void*) + sizeof(nuint)).ToPointer(), array.Length);
     }

@@ -6,6 +6,11 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Character;
+#if Aicomi
+using ILLGAMES.Unity;
+#else
+using ILLGames.Unity;
+#endif
 using HarmonyLib;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
@@ -44,7 +49,8 @@ namespace SardineTail
                 .With(s => category.Entries.ForEach(entry => s.Add(values[entry.Index])));
 
         internal static ListInfoBase Resolve(this Category category, Values values) =>
-            new ListInfoBase((int)category.Index, 0, new KeysDefs(category.ResolveKeys().Pointer), category.ResolveValues(values));
+            new ListInfoBase((int)category.Index, 0,
+                new KeysDefs(category.ResolveKeys().Pointer), category.ResolveValues(values));
     }
     internal abstract class CategoryCollector<T>
     {
@@ -275,7 +281,7 @@ namespace SardineTail
         AssetBundle CacheAssetBundle(string path) =>
             ResourceExists(path) ? Cache[path] = ToAssetBundle(path) : DefaultBundle;
         UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
-            GetAssetBundle(bundle).LoadAsset(asset, type);
+            GetAssetBundle(bundle)?.LoadAsset(asset, type);
         internal void Unload() =>
             Cache.With(cache => cache.Values.ForEach(item => item.Unload(true))).Clear();
         internal static Func<string[], IEnumerable<Version>> ToVersion =>
@@ -302,7 +308,6 @@ namespace SardineTail
                     ? Packages[soft.PkgId].TranslateId(soft, id) : info?.PkgId == null ? id
                     : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
                     : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
-
         internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
             items.Length switch
             {
@@ -397,8 +402,10 @@ namespace SardineTail
     }
     internal static partial class IOExtension
     {
-        static int FigureId = -1;
         static string GameTag;
+        static int FigureId = -1;
+        static NormalData ToNormalData(UnityEngine.Object asset) =>
+            asset is null ? null : new NormalData(asset.Pointer);
         internal static void OverrideFigure(Human human) =>
             (GameTag, FigureId) = (human.data.Tag, Extension.Chara<CharaMods, CoordMods>(human).FigureId);
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
@@ -453,19 +460,26 @@ namespace SardineTail
         const string BodyShapeAnimeAB = "list/customshape.unity3d";
 #endif
         const string BodyShapeAnime = "cf_anmShapeBody";
-
         static bool PreventRedirect = false;
         static void EnableRedirect() =>
             PreventRedirect = false;
         static void DisableRedirect() =>
             PreventRedirect = true;
+        static Func<NormalData, NormalData> BustNormalOverrideProc = IOExtension.ToBodyNormal;
+        static Func<NormalData, NormalData> BustNormalOverrideSkip = normalData => normalData;
+        static Func<NormalData, NormalData> BustNormalOverride = BustNormalOverrideSkip; 
+        static void BustNormalInitializePrefix(ref NormalData normalData) =>
+            normalData = BustNormalOverride(normalData);
 #if Aicomi
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
-            IOExtension.OverrideFigure(__instance._human);
+            BustNormalOverride = BustNormalOverrideProc.With(F.Apply(IOExtension.OverrideFigure, __instance._human));
 #else
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
-            IOExtension.OverrideFigure(__instance.human);
+            BustNormalOverride = BustNormalOverrideProc.With(F.Apply(IOExtension.OverrideFigure, __instance.human));
 #endif
+        static void HumanBodyLoadPostfix() =>
+            BustNormalOverride = BustNormalOverrideSkip;
+
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
@@ -487,8 +501,12 @@ namespace SardineTail
                 (BodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
                 _ => null
             } ?? __result).With(EnableRedirect);
+
         static Dictionary<string, MethodInfo[]> Prefixes => new()
         {
+            [nameof(BustNormalInitializePrefix)] = [
+                typeof(BustNormal).GetMethod(nameof(BustNormal.Initialize), 0, [typeof(GameObject), typeof(NormalData)])
+            ],
             [nameof(HumanBodyLoadPrefix)] = [
                 typeof(HumanBody).GetMethod(nameof(HumanBody.Load), 0, [typeof(Transform), typeof(string)])
             ]
@@ -497,6 +515,9 @@ namespace SardineTail
         {
             [nameof(LoadAssetPostfix)] = [
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string), typeof(Il2CppSystem.Type)])
+            ],
+            [nameof(HumanBodyLoadPostfix)] = [
+                typeof(HumanBody).GetMethod(nameof(HumanBody.Load), 0, [typeof(Transform), typeof(string)])
             ]
         };
 
@@ -515,7 +536,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.8";
+        public const string Version = "2.1.9";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
