@@ -36,10 +36,10 @@ namespace SardineTail
     public static class ModificationExtension
     {
         internal static Dictionary<K, V> Defaults<K, V>(this Dictionary<K, V> values) where K : struct, Enum where V : new() =>
-            values ?? Enum.GetValues<K>().ToDictionary(item => item, item => new V());
+            (values?.Count ?? 0) is not 0 ? values : Enum.GetValues<K>().ToDictionary(item => item, item => new V());
 
         internal static Dictionary<int, V> Defaults<V>(this Dictionary<int, V> values, int count) where V : new() =>
-            values ?? Enumerable.Range(0, count).ToDictionary(item => item, item => new V());
+            (values?.Count ?? 0) is not 0 ? values : Enumerable.Range(0, count).ToDictionary(item => item, item => new V());
 
         internal static T Defaults<T>(this T values) where T : new() =>
             values ?? new T();
@@ -284,8 +284,9 @@ namespace SardineTail
             data.id = ModInfo.Map[CatNo.mt_eye].ToId(Eye, data.id);
             data.overId = ModInfo.Map[CatNo.mt_eyepipil].ToId(Pupil, data.overId);
             data.gradMaskId = ModInfo.Map[CatNo.mt_eye_gradation].ToId(Gradation, data.gradMaskId);
-            Highlights.Defaults(data.highlightInfos.Count).ForEach(entry =>
-                data.highlightInfos[entry.Key].id = ModInfo.Map[CatNo.mt_eye_hi_up].ToId(entry.Value, data.highlightInfos[entry.Key].id));
+            Highlights.Defaults(data.highlightInfos.Count)
+                .ForEach((key, val) => data.highlightInfos[key].id =
+                     ModInfo.Map[CatNo.mt_eye_hi_up].ToId(val, data.highlightInfos[key].id));
         }
 
         static Tuple<int, ModInfo> ToMod(HumanDataFace.HighlightInfo data, int index) =>
@@ -328,7 +329,7 @@ namespace SardineTail
             data.eyelineDownId = ModInfo.Map[CatNo.mt_eyeline_down].ToId(EyelineDown, data.eyelineDownId);
             data.eyelineUpId = ModInfo.Map[CatNo.mt_eyeline_up].ToId(EyelineUp, data.eyelineUpId);
             data.whiteId = ModInfo.Map[CatNo.mt_eye_white].ToId(EyeWhite, data.whiteId);
-            Eyes.Defaults(data.pupil.Count).ForEach(entry => entry.Value.Apply(data.pupil[entry.Key]));
+            Eyes.Defaults(data.pupil.Count).ForEach((index, value) => value.Apply(data.pupil[index]));
         }
 
         static Tuple<int, EyeMods> ToMod(HumanDataFace.PupilInfo data, int index) =>
@@ -413,7 +414,7 @@ namespace SardineTail
             Body.Defaults().Apply(data.Custom.Body);
             Face.Defaults().Apply(data.Custom.Face);
             Coordinates.Defaults(data.Coordinates.Count)
-                .ForEach(entry => entry.Value.Apply(data.Coordinates[entry.Key]));
+                .ForEach((index, value) => value.Apply(data.Coordinates[index]));
         }
 
         internal static void Store(Human human) =>

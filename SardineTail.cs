@@ -477,7 +477,7 @@ namespace SardineTail
         static Func<NormalData, NormalData> BustNormalOverrideSkip = normalData => normalData;
         static Func<NormalData, NormalData> BustNormalOverride = BustNormalOverrideSkip; 
         static void BustNormalInitializePrefix(ref NormalData normalData) =>
-            normalData = BustNormalOverride(normalData);
+            (normalData = BustNormalOverride(normalData.With(DisableRedirect))).With(EnableRedirect);
 #if Aicomi
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
             BustNormalOverride = BustNormalOverrideProc.With(F.Apply(IOExtension.OverrideFigure, __instance._human));
@@ -544,7 +544,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.10";
+        public const string Version = "2.1.11";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;
