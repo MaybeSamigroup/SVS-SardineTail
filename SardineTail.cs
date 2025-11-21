@@ -419,6 +419,34 @@ namespace SardineTail
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
             (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
                  BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
+        static IEnumerable<Renderer> ToOverrideRenderers(HumanBody body, GameObject go) =>
+            Enumerable.Range(0, go.transform.childCount)
+                .Select(index => go.transform.GetChild(index).gameObject.GetComponent<Renderer>())
+                .Where(renderer => renderer != null & body.rendBody.material.shader.name.Equals(renderer?.material?.shader?.name));
+        internal static void OverrideGraphic(HumanBody body, GameObject go) =>
+#if Aicomi
+            body._graphicDisposables.Add(body._graphic.AddEvent(ToOverrideRenderers(body, go).ToArray(), HumanGraphic.UpdateFlags.All)); 
+#else
+            body._graphicDisposables.Add(body.graphic.AddEvent(ToOverrideRenderers(body, go).ToArray(), HumanGraphic.UpdateFlags.All));
+#endif
+        internal static void OverrideColors(HumanBody body, GameObject go) =>
+#if Aicomi
+            ToOverrideRenderers(body, go).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body._fileBody));
+#else
+            ToOverrideRenderers(body, go).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body.fileBody));
+#endif
+        static Action<HumanDataBody, Material> ApplyColors =
+            new Action<HumanDataBody, Material>[]
+            {
+                (data, material) => material.SetColor("_MainColor", data.skinMainColor),
+                (data, material) => material.SetColor(ChaShader.Body.sHighlightColorID, data.skinHighlightColor),
+                (data, material) => material.SetColor(ChaShader.Body.sShadowColorID, data.skinShadowColor),
+            }.Concat(
+                new int[] { ChaShader.Body.sDetailColor01, ChaShader.Body.sDetailColor02, ChaShader.Body.sDetailColor03 }
+                .Select<int, Action<HumanDataBody, Material>>((id, idx) =>
+                    (data, material) => (idx < data.skinDetailColors.Count)
+                        .Maybe(F.Apply(material.SetColor, id, data.skinDetailColors[idx])))
+            ).Aggregate((a, b) => a + b);
     }
     public partial class EntryWrapper : Il2CppSystem.IO.Stream
     {
@@ -485,15 +513,19 @@ namespace SardineTail
         static void HumanBodyLoadPrefix(HumanBody __instance) =>
             BustNormalOverride = BustNormalOverrideProc.With(F.Apply(IOExtension.OverrideFigure, __instance.human));
 #endif
-        static void HumanBodyLoadPostfix() =>
-            BustNormalOverride = BustNormalOverrideSkip;
+        static void HumanBodyLoadPostfix(HumanBody __instance) =>
+            BustNormalOverride = BustNormalOverrideSkip.With(
+                F.Apply(IOExtension.OverrideGraphic, __instance, __instance.GetRefObject(Table.RefObjKey.S_Son)));
+
+        static void HumanBodyCreateBodyTexturePostfix(HumanBody __instance) =>
+            IOExtension.OverrideColors(__instance, __instance.GetRefObject(Table.RefObjKey.S_Son));
 
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
                 (Plugin.AssetBundle, _) => ModPackage.ToAsset(name.Split(':'), type),
-                (BodyPrefabAB, BodyPrefabM) => IOExtension.ToBodyPrefab() ?? __result,
-                (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabM) => IOExtension.ToBodyPrefab(BodyPrefabM) ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab(BodyPrefabF) ?? __result,
                 (BodyTextureAB, BodyTexture) => IOExtension.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
                 _ => null
@@ -503,8 +535,8 @@ namespace SardineTail
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
             {
                 (Plugin.AssetBundle, _) => ModPackage.ToAsset(name.Split(':')),
-                (BodyPrefabAB, BodyPrefabM) => IOExtension.ToBodyPrefab() ?? __result,
-                (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab() ?? __result,
+                (BodyPrefabAB, BodyPrefabM) => IOExtension.ToBodyPrefab(BodyPrefabM) ?? __result,
+                (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab(BodyPrefabF) ?? __result,
                 (BodyTextureAB, BodyTexture) => IOExtension.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
                 _ => null
@@ -526,7 +558,11 @@ namespace SardineTail
             ],
             [nameof(HumanBodyLoadPostfix)] = [
                 typeof(HumanBody).GetMethod(nameof(HumanBody.Load), 0, [typeof(Transform), typeof(string)])
+            ],
+            [nameof(HumanBodyCreateBodyTexturePostfix)] = [
+                typeof(HumanBody).GetMethod(nameof(HumanBody.CreateBodyTexture), 0, [])
             ]
+
         };
 
         static void ApplyPrefixes(Harmony hi) =>
@@ -544,7 +580,7 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.11";
+        public const string Version = "2.1.12";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
         internal static Plugin Instance;

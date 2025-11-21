@@ -444,7 +444,8 @@ namespace SardineTail
             Graphic = mods.Graphic,
             Face = mods.Face,
             Body = mods.Body,
-            Coordinates = mods.Coordinates.ToDictionary(entry => (int)entry.Key, entry => entry.Value)
+            Coordinates = mods.Coordinates.Defaults()
+                .ToDictionary(entry => (int)entry.Key, entry => entry.Value)
         };
     }
 }

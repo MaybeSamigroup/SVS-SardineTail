@@ -23,9 +23,9 @@ Confirmed working under SamabakeScramble 1.1.6
 ## Prerequisites (DigitalCraft Standalone)
 
 - [BepInEx](https://github.com/BepInEx/BepInEx)
-  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #697 or later
+  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #752
 
-Confirmed working under DigitalCraft 2.0.0.
+Confirmed working under DigitalCraft 3.0.0.
 
 ## Prerequisites (Dependent BepInEx plugin)
 

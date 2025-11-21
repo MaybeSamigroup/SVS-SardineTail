@@ -175,7 +175,7 @@ namespace SardineTail
             Extension.OnLoadCustomChara -= CheckFigure;
         void CheckFigure(Human _) =>
             IOExtension.ReloadingFigureId(out var id)
-                .Maybe(F.Apply(UpdateChoice, IdToChoice[id]) + Extension.HumanCustomReload);
+                .Maybe(F.Apply(UpdateChoice, IdToChoice.GetValueOrDefault(id)) + Extension.HumanCustomReload);
         void UpdateChoice((string, string) pair) =>
             (CurrentPkg.text = pair.Item1).With(() =>
                 CurrentMod.Values.ForEach(ui => ui.text = pair.Item2));
@@ -201,10 +201,11 @@ namespace SardineTail
             info.TryGetValue(Ktype.MainData, out var asset) &&
             Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
 
-        internal static UnityEngine.Object ToBodyPrefab() =>
+        internal static UnityEngine.Object ToBodyPrefab(string name) =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
-                Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
+                Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>())
+                ?.With(obj => obj.name = name);
 
         internal static UnityEngine.Object ToBodyTexture() =>
             (FigureId < ModInfo.MIN_ID) ? null :
@@ -254,7 +255,7 @@ namespace SardineTail
             DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
             HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
             GameSpecificInitialize();
-
+           
             Util<CategoryEdit>.Hook(FigureChoice.Initialize, IOExtension.InitializeFigureId);
 
             Extension.OnPreprocessChara += Extension<CharaMods, CoordMods>

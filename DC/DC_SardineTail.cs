@@ -114,10 +114,11 @@ namespace SardineTail
             info.TryGetValue(Ktype.MainData, out var asset) &&
             Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
 
-        internal static UnityEngine.Object ToBodyPrefab() =>
+        internal static UnityEngine.Object ToBodyPrefab(string name) =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId),
-                Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>());
+                Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>())
+                ?.With(obj => obj.name = name);
 
         internal static UnityEngine.Object ToBodyTexture() =>
             (FigureId < ModInfo.MIN_ID) ? null :
@@ -148,7 +149,7 @@ namespace SardineTail
         {
             [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
                 typeof(HumanManager.MaterialHelper).GetMethod(
-                    nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string)])
+                    nameof(HumanManager.MaterialHelper.LoadPatchMaterial), 0, [typeof(int), typeof(string), typeof(string), typeof(bool)])
             ],
             [nameof(LoadAssetWithoutTypePostfix)] = [
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)])
