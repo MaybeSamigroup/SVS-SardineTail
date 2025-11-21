@@ -83,7 +83,9 @@ namespace SardineTail
     {
         internal static void InitializeManifest(this int gameId, string path, string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles =
-                ExtendManifest(manifest).With(ModPackage.InitializePackages.Apply(gameId).Apply(path));
+                ExtendManifest(manifest)
+                    .With(CategoryExtension.PrepareAll.Apply(manifest))
+                    .With(ModPackage.InitializePackages.Apply(gameId).Apply(path));
 
         static string[] ExtendManifest(string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles
@@ -155,10 +157,6 @@ namespace SardineTail
                 typeof(AssetBundle).GetMethod(nameof(AssetBundle.LoadAsset), 0, [typeof(string)])
             ],
         };
-    }
-    internal static partial class CategoryExtension
-    {
-        internal const string MainManifest = "abdata";
     }
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin

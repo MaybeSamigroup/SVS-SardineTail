@@ -47,7 +47,14 @@ namespace SardineTail
                         : Enumerable.Empty<Entry>()
                 );
 
-        internal static readonly Dictionary<CatNo, Category> All =
+#if DigitalCraft
+        internal static Dictionary<CatNo, Category> All { get; set; }
+        
+        internal static Action<string> PrepareAll = manifest => All = Definitions(manifest.Split('_', 2)[^1]);
+#else
+        internal static readonly Dictionary<CatNo, Category> All = Definitions(MainManifest);
+#endif
+        static Dictionary<CatNo, Category> Definitions(string MainManifest) =>
             Enum.GetValues<CatNo>()
                 .Select(index => new Category
                 {
