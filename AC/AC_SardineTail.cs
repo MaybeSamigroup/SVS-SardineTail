@@ -36,7 +36,6 @@ namespace SardineTail
     {
         internal const string AssetPath = "lib";
         internal const string MainManifest = "lib000_03";
-        internal static void Initialize() { } 
     }
     internal static partial class IOExtension
     {
@@ -103,11 +102,20 @@ namespace SardineTail
     public partial class Plugin : BasePlugin
     {
         public const string Process = "Aicomi";
+        internal static ConfigEntry<bool> HardmodConversion;
         internal static ConfigEntry<bool> ShaderTranslation;
+        public Plugin() : base() =>
+            (Instance, DevelopmentMode, HardmodConversion, ShaderTranslation) = (
+                this,
+                Config.Bind("General", "Enable development package loading.", false),
+                Config.Bind("General", "Enable hardmod conversion at startup.", false),
+                Config.Bind("General", "Enable runtime shader translation (requires restart).", false)
+            ); 
+
         void GameSpecificInitialize()
         {
-            ShaderTranslation = Config.Bind("General", "Enable runtime shader translation (requires restart).", false);
-            IOExtension.PreprocessPrefab = ShaderTranslation.Value ? IOExtension.TranslateShaderProc : IOExtension.TranslateShaderSkip;
+            IOExtension.PreprocessPrefab = ShaderTranslation.Value ?
+                IOExtension.TranslateShaderProc : IOExtension.TranslateShaderSkip;
         }
     }
 }

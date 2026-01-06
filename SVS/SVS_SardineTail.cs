@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reactive;
 using UnityEngine;
 using Character;
 using BepInEx;
@@ -35,17 +36,20 @@ namespace SardineTail
     {
         internal const string AssetPath = "abdata";
         internal const string MainManifest = "abdata";
-        internal static void Initialize() =>
-            Plugin.HardmodConversion.Value.Maybe(Util<Manager.Game>.Hook.Apply(Convert).Apply(F.DoNothing));
     }
+
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
-        internal static ConfigEntry<bool> AicomiConversion;
         public const string Process = "SamabakeScramble";
-        void GameSpecificInitialize()
-        {
-            AicomiConversion = Config.Bind("General", "Enable aicomi oriented hardmod conversion.", false);
-        }
+        internal static ConfigEntry<bool> HardmodConversion;
+        internal static ConfigEntry<bool> AicomiConversion;
+        public Plugin() : base() =>
+            (Instance, DevelopmentMode, HardmodConversion, AicomiConversion) = (
+                this,
+                Config.Bind("General", "Enable development package loading.", false),
+                Config.Bind("General", "Enable hardmod conversion at startup.", false),
+                Config.Bind("General", "Enable aicomi oriented hardmod conversion.", false)
+            ); 
     }
 }

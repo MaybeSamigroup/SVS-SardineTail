@@ -1,105 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net6</TargetFramework>
-        <AssemblyName>AC_SardineTail</AssemblyName>
-        <Description>Runtime mod loader for SamabakeScramble Character Creation</Description>
-        <LangVersion>latest</LangVersion>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<GameName>Aicomi</GameName>
-        <GamePath>$([MSBuild]::GetRegistryValue('HKEY_CURRENT_USER\Software\ILLGAMES\$(GameName)','INSTALLDIR'))</GamePath>
-        <DefineConstants>$(GameName)</DefineConstants>
+        <Description>Runtime mod loader for Aicomi</Description>
+        <GameName>Aicomi</GameName>
+        <AssetPath>lib</AssetPath>
     </PropertyGroup>
-	<ItemGroup>
-		<Compile Include="..\SardineTail.cs"/>
-		<Compile Include="..\Definitions.cs"/>
-		<Compile Include="..\Modifications.cs"/>
-		<Compile Include="..\Conversion.cs"/>
-		<Compile Include="..\Custom.cs"/>
-		<Reference Include="0Harmony">
-			<HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.Core">
-			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Core.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.Unity.IL2CPP">
-			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Il2CppInterop.Runtime">
-			<HintPath>$(GamePath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Il2Cppmscorlib">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Il2Cppmscorlib.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.CoreModule">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.CoreModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.AssetBundleModule">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.AssetBundleModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.ImageConversionModule">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.UI">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.UI.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.TextRenderingModule">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UnityEngine.TextRenderingModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Unity.TextMeshPro">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Unity.TextMeshPro.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="R3">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\R3.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="R3.Unity">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\R3.Unity.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UniTask">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\UniTask.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Assembly-CSharp">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\Assembly-CSharp.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="ILGLib">
-			<HintPath>$(GamePath)\BepInEx\interop-$(GameName)\interop\ILGLib.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="CoastalSmell">
-			<HintPath>$(GamePath)\BepInEx\plugins\AC_CoastalSmell.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Fishbone">
-			<HintPath>$(GamePath)\BepInEx\plugins\AC_Fishbone.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-	</ItemGroup>
-	<Target Name="Deploy" AfterTargets="Build">
-		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\" />
-	</Target>
-	<Target Name="Release" AfterTargets="Build">
-		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
-		<MakeDir Directories="..\Release\$(GameName)\UserData\plugins\SardineTail\packages"/>
-		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\lib"/>
-		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
-		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>
-	</Target>
-	<Target Name="CleanRelease" AfterTargets="Clean">
-		<RemoveDir Directories="..\Release\$(GameName)"/>
-		<Delete Files="..\$(AssemblyName).zip"/>
-	</Target>
+    <ItemGroup>
+        <Compile Include="../Custom.cs"/>
+        <Compile Include="../Conversion.cs"/>
+        <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.738"/>
+        <PackageReference Include="IllusionLibs.Aicomi.AllPackages" Version="2024.10.03.0"/>
+        <PackageReference Include="IllusionLibs.Aicomi.Optional" Version="2024.10.03.0"/>
+    </ItemGroup>
+    <Import Project="../Tasks.xml"/>
 </Project>

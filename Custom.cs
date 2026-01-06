@@ -1,24 +1,21 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reactive;
+using System.Reactive.Linq;
+using System.Reactive.Disposables;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 #if Aicomi
-using R3;
-using R3.Triggers;
 using ILLGAMES.Unity;
 #else
-using UniRx;
-using UniRx.Triggers;
 using ILLGames.Unity;
 #endif
 using TMPro;
 using Character;
 using CharacterCreation;
-using HarmonyLib;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using Fishbone;
 using CoastalSmell;
@@ -88,97 +85,59 @@ namespace SardineTail
 
     class FigureChoice
     {
-        ChoiceList PkgChoice;
-        TextMeshProUGUI CurrentPkg;
-        Dictionary<string, ChoiceList> ModChoice;
-        Dictionary<string, TextMeshProUGUI> CurrentMod;
-        Dictionary<(string, string), int> ChoiceToId;
-        Dictionary<int, (string, string)> IdToChoice;
-        internal static void Initialize() =>
-            new FigureChoice(CategoryEdit.Instance._parameterWindow.Content.gameObject);
-        static Dictionary<int, (string, string)> Options =>
+        TMP_Dropdown PkgChoice;
+        TMP_Dropdown ModChoice;
+        List<(string, List<(string, int)>)> Options =
             Human.lstCtrl.GetCategoryInfo(CatNo.bo_body).Yield()
                 .Where(entry => entry.Item1 >= ModInfo.MIN_ID)
                 .Where(HumanCustom.Instance.IsMale()
                     ? entry => entry.Item2.GetInfoInt(Ktype.Sex) is 2
                     : entry => entry.Item2.GetInfoInt(Ktype.Sex) is 3)
-                .Select(entry => (entry.Item1, (ModInfo.Map[CatNo.bo_body].ToMod(entry.Item1).PkgId, entry.Item2.Name)))
-                .Append((HumanCustom.Instance.IsMale() ? 0 : 1, ("<default>", "<default>"))).Reverse()
-                .ToDictionary(entry => entry.Item1, entry => (entry.Item2.Item1, entry.Item2.Item2)); 
-        static (int, int) NowCategory =>
-            (HumanCustom.Instance.NowCategory.Category, HumanCustom.Instance.NowCategory.Index);
-
+                .Select(tuple => (tuple.Item2.Name, tuple.Item1))
+                .GroupBy(entry => ModInfo.Map[CatNo.bo_body].ToMod(entry.Item2).PkgId)
+                .Select(group => (group.Key, group.OrderBy(tuple => tuple.Item1).Prepend(("<current>", -1)).ToList()))
+                .OrderBy(tuple => tuple.Item1)
+                .Prepend(("<default>", [("<current>", -1), ("<default>", HumanCustom.Instance.IsMale() ? 0 : 1)])).ToList();
+        (int, int) FigureIdToOption(int id) =>
+            Options.Index().SelectMany(pkg => pkg.Item1.Item2.Index().Where(mod => id == mod.Item1.Item2).Select(mod => (pkg.Item2, mod.Item2))).FirstOrDefault((0, 0));
+        void Update(Human human) =>
+            FigureIdToOption(Extension<CharaMods, CoordMods>.Humans[human].FigureId).With(UpdatePkg).With(UpdateMod);
+        void Update() => Update(HumanCustom.Instance.Human);
+        void UpdatePkg((int, int) indices) => PkgChoice.SetValueWithoutNotify(indices.Item1);
+        void UpdateMod((int, int) indices) => ModChoice.With(PopulateModOptions).SetValueWithoutNotify(indices.Item2);
+        void ClearOptions(TMP_Dropdown ui) => ui.ClearOptions();
+        void PopulatePkgOptions() =>
+            PkgChoice.With(ClearOptions).AddOptions(Options.Select(tuple => tuple.Item1).AsIl2Cpp());
+        void PopulateModOptions() =>
+            ModChoice.With(ClearOptions).AddOptions(Options[PkgChoice.value].Item2.Select(tuple => tuple.Item1).AsIl2Cpp());
+        void SubmitPkg() => ModChoice.With(PopulateModOptions).SetValueWithoutNotify(0);
+        void SubmitMod() => (Extension<CharaMods, CoordMods>.Humans[HumanCustom.Instance.Human].FigureId = Options[PkgChoice.value].Item2[ModChoice.value].Item2).With(Extension.HumanCustomReload);
+             
+        void PreparePkgChoice(TMP_Dropdown ui) =>
+            (PkgChoice = ui)
+                .With(PopulatePkgOptions).OnValueChangedAsObservable()
+                .Subscribe(_ => SubmitPkg());
+        void PrepareModChoice(TMP_Dropdown ui) =>
+            (ModChoice = ui)
+                .With(PopulateModOptions).OnValueChangedAsObservable()
+                .Subscribe(index => (index is not 0).Either(Update, SubmitMod));
         FigureChoice() =>
-            Extension.OnLoadCustomChara += CheckFigure;
+            Extension.OnLoadCustomChara.Subscribe(Update);
+        FigureChoice(CharacterCreation.UI.ParameterWindow ui) =>
+            ui.Content.With("BodyAsset".AsChild(
+                UGUI.Size(height: 120) +
+                UGUI.LayoutV(padding: UGUI.Offset(10, 6), childAlignment: TextAnchor.MiddleCenter) +
+                "Body Pkg".AsChild(UGUI.Label(300, 24) + UGUI.Text(text: "Body Pkg:")) +
+                "PkgChoice".AsChild(UGUI.Dropdown(300, 24, UGUI.Text(text: "<default>")) + UGUI.Component<TMP_Dropdown>(PreparePkgChoice)) +
+                "Body Pkg".AsChild(UGUI.Label(300, 24) + UGUI.Text(text: "Body Mod:")) +
+                "PkgChoice".AsChild(UGUI.Dropdown(300, 24, UGUI.Text(text: "<default>")) + UGUI.Component<TMP_Dropdown>(PrepareModChoice)) +
+                new UIAction(go => ui.OnEnableAsObservable()
+                    .Select(_ => (HumanCustom.Instance.NowCategory.Category, HumanCustom.Instance.NowCategory.Index))
+                    .Select(nowCategory => nowCategory is (1, 0) or (1, 9)).Subscribe(go.SetActive))));
 
-        FigureChoice(Dictionary<int, (string, string)> opts) : this() =>
-            (IdToChoice, ChoiceToId, PkgChoice, ModChoice, CurrentMod) = (
-                opts, opts.ToDictionary(entry => entry.Value, entry => entry.Key),
-                new ChoiceList(300, 24, "Pkgs", opts.Values.Select(pair => pair.Item1).Distinct().ToArray()),
-                opts.Values.GroupBy(pair => pair.Item1)
-                    .ToDictionary(group => group.Key, group => 
-                        new ChoiceList(300, 24, "Mods", group.Select(pair => pair.Item2).ToArray())), new ());
-
-        FigureChoice(GameObject parent) : this(Options) =>
-            new GameObject("BodyAssets")
-                .With(UGUI.Go(parent: parent.transform))
-                .With(UGUI.Cmp(UGUI.Layout(height: 120)))
-                .With(UGUI.Cmp(UGUI.LayoutGroup<VerticalLayoutGroup>(
-                    padding: new RectOffset() { left = 10, right = 10, top = 6, bottom = 6 }, childAlignment: TextAnchor.MiddleCenter)))
-                .With(UGUI.Label.Apply(300).Apply(24).Apply("Body Pkg"))
-                .With(UGUI.Choice.Apply(300).Apply(24).Apply("Choice"))
-                .With(UGUI.ModifyAt("Choice")(
-                    UGUI.Cmp<LayoutElement>(ui => ui.minHeight = 24) +
-                    UGUI.Cmp(UGUI.Fitter()) + PkgChoice.Assign +
-                    UGUI.ModifyAt("Choice.State", "Choice.Label")(
-                        UGUI.Cmp(UGUI.Text(text: IdToChoice[IOExtension.CustomFigureId].Item1)) +
-                        UGUI.Cmp<TextMeshProUGUI>(ui => CurrentPkg = ui)) +
-                    UGUI.Cmp(ObservePackageValueChanged)))
-                .With(UGUI.Label.Apply(300).Apply(24).Apply("Body Mod"))
-                .With(go => ModChoice.ForEach((pkg, choice) => go
-                    .With(UGUI.Choice.Apply(300).Apply(24).Apply($"{pkg}.Choice"))
-                    .With(UGUI.ModifyAt($"{pkg}.Choice")(
-                        UGUI.Cmp<LayoutElement>(ui => ui.minHeight = 24) +
-                        UGUI.Cmp(UGUI.Fitter()) + choice.Assign +
-                        UGUI.ModifyAt($"{pkg}.Choice.State", $"{pkg}.Choice.Label")(
-                            UGUI.Cmp(UGUI.Text(text: IdToChoice[IOExtension.CustomFigureId].Item2)) +
-                            UGUI.Cmp<TextMeshProUGUI>(ui => CurrentMod[pkg] = ui)) +
-                        UGUI.Cmp(ObserveFigureValueChanged)))))
-                .With(ObserveParentEnable(parent))
-                .With(ToggleModChoices)
-                .OnDestroyAsObservable().Subscribe(F.Ignoring<Unit>(Dispose));
-        void ToggleModChoices() =>
-            CurrentMod.ForEach((pkg, ui) => ui.transform.parent.parent.gameObject.active = pkg == CurrentPkg.text);
-        Action<Toggle> ObservePackageValueChanged =>
-            ui => ui.OnValueChangedAsObservable().Subscribe(OnPackageChanged);
-        Action<Toggle> ObserveFigureValueChanged =>
-            ui => ui.OnValueChangedAsObservable().Subscribe(OnValueChanged);
-        Action<bool> OnPackageChanged =>
-            value => (!value).Maybe(ToggleModChoices);
-        Action<bool> OnValueChanged =>
-            value => (!value).Maybe(CheckFigure);
-        void CheckFigure() =>
-            ChoiceToId.TryGetValue((CurrentPkg.text,
-                CurrentMod[CurrentPkg.text].text), out var id).Maybe(F.Apply(CheckFigure, id));
-        void CheckFigure(int id) =>
-            (Extension.Chara<CharaMods,CoordMods>().FigureId != id).Maybe(() => ApplyFigure(id));
-        void ApplyFigure(int id) =>
-            (Extension.Chara<CharaMods, CoordMods>().FigureId = id)
-                .With(F.Apply(UpdateChoice, IdToChoice[id])).With(Extension.HumanCustomReload);
-        Action<GameObject> ObserveParentEnable(GameObject parent) =>
-            go => parent.With(UGUI.Cmp(ObserveOnEnable(go)));
-        Action<ObservableEnableTrigger> ObserveOnEnable(GameObject go) =>
-            trigger => trigger.OnEnableAsObservable().Subscribe(OnEnableParent(go));
-        Action<Unit> OnEnableParent(GameObject go) =>
-            _ => go.SetActive(NowCategory is (1, 0) or (1, 9));
-        void Dispose() =>
-            Extension.OnLoadCustomChara -= CheckFigure;
-        void CheckFigure(Human _) =>
-            IOExtension.ReloadingFigureId(out var id)
-                .Maybe(F.Apply(UpdateChoice, IdToChoice.GetValueOrDefault(id)) + Extension.HumanCustomReload);
-        void UpdateChoice((string, string) pair) =>
-            (CurrentPkg.text = pair.Item1).With(() =>
-                CurrentMod.Values.ForEach(ui => ui.text = pair.Item2));
+        internal static IDisposable Initialize() =>
+            HumanCustomExtension.OnUIPrefab("editwindow.unity3d", "ParameterWindow")
+                .Subscribe(UGUI.Component<CharacterCreation.UI.ParameterWindow>(cmp => new FigureChoice(cmp)).Invoke);
     }
 
     internal static partial class IOExtension
@@ -222,10 +181,10 @@ namespace SardineTail
             ToBodyNormal(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId)) ?? original;
 
         internal static int CustomFigureId =>
-            (Extension.Chara<CharaMods, CoordMods>().FigureId, HumanCustom.Instance.IsMale()) switch
+            (Extension<CharaMods, CoordMods>.Humans[HumanCustom.Instance.Human].FigureId, HumanCustom.Instance.IsMale()) switch
             {
-                (< ModInfo.MIN_ID, true) => 0,
-                (< ModInfo.MIN_ID, false) => 1,
+                ( < ModInfo.MIN_ID, true) => 0,
+                ( < ModInfo.MIN_ID, false) => 1,
                 (var figureId, _) => figureId
             };
 
@@ -243,36 +202,26 @@ namespace SardineTail
 
         internal static void InitializeFigureId() => FigureId = -1;
     }
+    internal static partial class CategoryExtension
+    {
+        internal static IDisposable[] Initialize() => [
+            SingletonInitializerExtension<CategoryEdit>.OnStartup.Subscribe(_ => FigureChoice.Initialize()),
+            SingletonInitializerExtension<CategoryEdit>.OnDestroy.Subscribe(_ => IOExtension.InitializeFigureId()),
+            Extension<CharaMods, CoordMods>.Translate<CharaMods>(Path.Combine(Plugin.Guid, "modifications.json"), mods => mods),
+            Extension<CharaMods, CoordMods>.Translate<CoordMods>(Path.Combine(Plugin.Guid, "modifications.json"), mods => mods),
+            Extension<CharaMods, CoordMods>.Translate<LegacyCharaMods>(Path.Combine(Plugin.Name, "modifications.json"), mods => mods),
+            ..Extension.Register<CharaMods, CoordMods>(),
+            Extension<CharaMods, CoordMods>.OnPreprocessChara.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension<CharaMods, CoordMods>.OnPreprocessCoord.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension.OnPrepareSaveChara.Subscribe(_ => IOExtension.SaveCustomChara()),
+            Extension.OnPrepareSaveCoord.Subscribe(_ => IOExtension.SaveCustomCoord()),
+            ..Extension.RegisterConversion<CharaMods, CoordMods>(),
+        ];
+    }
+
     public partial class Plugin : BasePlugin
     {
         internal static readonly string ConvertPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Name, "hardmods");
         internal static readonly string InvalidPath = Path.Combine(Paths.GameRootPath, "UserData", "plugins", Name, "invalids");
-        internal static ConfigEntry<bool> HardmodConversion;
-        public override void Load()
-        {
-            Hooks.ApplyPatches(Patch = new Harmony($"{Name}.Hooks"));
-            Instance = this;
-            DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
-            HardmodConversion = Config.Bind("General", "Enable hardmod conversion at startup.", false);
-            GameSpecificInitialize();
-           
-            Util<CategoryEdit>.Hook(FigureChoice.Initialize, IOExtension.InitializeFigureId);
-
-            Extension.OnPreprocessChara += Extension<CharaMods, CoordMods>
-                .Translate<CharaMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
-            Extension.OnPreprocessCoord += Extension<CharaMods, CoordMods>
-                .Translate<CoordMods>(Path.Combine(Guid, "modifications.json"), mods => mods);
-            Extension.OnPreprocessChara += Extension<CharaMods, CoordMods>
-                .Translate<LegacyCharaMods>(Path.Combine(Name, "modifications.json"), mods => mods);
-
-            Extension.Register<CharaMods, CoordMods>();
-            Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);
-            Extension<CharaMods, CoordMods>.OnPreprocessCoord += (data, mods) => mods.Apply(data);
-
-            Extension.PrepareSaveChara += IOExtension.SaveCustomChara;
-            Extension.PrepareSaveCoord += IOExtension.SaveCustomCoord;
-
-            CategoryExtension.Initialize();
-        }
     }
 }

@@ -135,18 +135,13 @@ namespace SardineTail
         internal static NormalData ToBodyNormal(NormalData original) =>
             (FigureId < ModInfo.MIN_ID) ? original :
             ToBodyNormal(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId)) ?? original;
-
-        internal static unsafe Span<byte> AsSpan(this Il2CppStructArray<byte> array) =>
-            new Span<byte>(IntPtr.Add(array.Pointer, sizeof(Il2CppObject) + sizeof(void*) + sizeof(nuint)).ToPointer(), array.Length);
     }
 
     static partial class Hooks
     {
         static void MaterialHelperLoadPatchMaterialPostfix(int gameID, string game) =>
             gameID.InitializeManifest(Path.Combine(game, ".."), DigitalCraft.PathManager.Instance.GetMainManifestFromID(gameID));
-
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
-
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
         {
             [nameof(MaterialHelperLoadPatchMaterialPostfix)] = [
@@ -158,23 +153,25 @@ namespace SardineTail
             ],
         };
     }
+    internal static partial class CategoryExtension
+    {
+        internal static IDisposable[] Initialize() => [
+            Extension<CharaMods, CoordMods>
+                .Translate<LegacyCharaMods>(Path.Combine(Plugin.Name, "modifications.json"), mods => mods),
+            ..Extension.Register<CharaMods, CoordMods>(),
+            Extension<CharaMods, CoordMods>.OnPreprocessChara.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension<CharaMods, CoordMods>.OnPreprocessCoord.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension.OnLoadChara.Subscribe(CharaMods.Store),
+            Extension.OnLoadCoord.Subscribe(CoordMods.Store),
+        ];
+    }
+ 
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";
-
-        public override void Load()
-        {
-            Patch = new Harmony($"{Name}.Hooks");
-            Hooks.ApplyPatches(Patch);
-            Instance = this;
-            DevelopmentMode = Config.Bind("General", "Enable development package loading.", false);
-
-            Extension.Register<CharaMods, CoordMods>();
-            Extension<CharaMods, CoordMods>.OnPreprocessChara += (data, mods) => mods.Apply(data);
-            Extension<CharaMods, CoordMods>.OnPreprocessCoord += (data, mods) => mods.Apply(data);
-            Extension.OnLoadChara += CharaMods.Store;
-            Extension.OnLoadCoord += CoordMods.Store;
-        }
+        public Plugin() : base() =>
+            (Instance, DevelopmentMode) =
+                (this, DevelopmentMode = Config.Bind("General", "Enable development package loading.", false)); 
     }
 }

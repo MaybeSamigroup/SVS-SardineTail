@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reactive.Disposables;
 using UnityEngine;
 using Character;
 #if Aicomi
@@ -415,7 +416,7 @@ namespace SardineTail
         static string GameTag;
         static int FigureId = -1;
         internal static void OverrideFigure(Human human) =>
-            (GameTag, FigureId) = (human.data.Tag, Extension.Chara<CharaMods, CoordMods>(human).FigureId);
+            (GameTag, FigureId) = (human.data.Tag, Extension<CharaMods, CoordMods>.Humans[human].FigureId);
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
             (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
                  BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
@@ -562,33 +563,35 @@ namespace SardineTail
             [nameof(HumanBodyCreateBodyTexturePostfix)] = [
                 typeof(HumanBody).GetMethod(nameof(HumanBody.CreateBodyTexture), 0, [])
             ]
-
         };
-
         static void ApplyPrefixes(Harmony hi) =>
             Prefixes.Concat(SpecPrefixes).ForEach(entry => entry.Value.ForEach(method =>
                 hi.Patch(method, prefix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
         static void ApplyPostfixes(Harmony hi) =>
             Postfixes.Concat(SpecPostfixes).ForEach(entry => entry.Value.ForEach(method =>
                 hi.Patch(method, postfix: new HarmonyMethod(typeof(Hooks), entry.Key) { wrapTryCatch = true })));
-        public static void ApplyPatches(Harmony hi) =>
-            hi.With(ApplyPrefixes).With(ApplyPostfixes);
+        internal static IDisposable Initialize() =>
+            Disposable.Create(new Harmony($"Hooks.{Plugin.Name}").With(ApplyPrefixes).With(ApplyPostfixes).UnpatchSelf);
     }
+
+
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
     [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BasePlugin
     {
         public const string Name = "SardineTail";
-        public const string Version = "2.1.12";
+        public const string Version = "2.2.0";
         public const string Guid = $"{Process}.{Name}";
         internal const string AssetBundle = "sardinetail.unity3d";
-        internal static Plugin Instance;
         internal static ConfigEntry<bool> DevelopmentMode;
-        private Harmony Patch;
+        internal static Plugin Instance;
+        CompositeDisposable Subscriptions; 
         static Plugin() =>
             ClassInjector.RegisterTypeInIl2Cpp<EntryWrapper>();
+        public override void Load() =>
+            Subscriptions = [Hooks.Initialize(), ..CategoryExtension.Initialize()];
         public override bool Unload() =>
-            true.With(Patch.UnpatchSelf) && base.Unload();
+            true.With(Subscriptions.Dispose) && base.Unload();
     }
 }

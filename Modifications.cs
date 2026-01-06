@@ -10,27 +10,15 @@ using CoastalSmell;
 
 namespace SardineTail
 {
-    public class ModTranslate
-    {
-        public Func<ModInfo, int, int> ToId;
-        public Func<int, ModInfo> ToMod;
-        internal ModTranslate(Func<ModInfo, int, int> to, Func<int, ModInfo> from) =>
-            (ToId, ToMod) = (to, from);
-    }
-
-    public class ModInfo
+    public record ModInfo
     {
         public const int MIN_ID = 1000_000_000;
-        public string PkgId { get; set; }
-        public string ModId { get; set; }
-        public CatNo Category { get; set; }
-        public Version PkgVersion { get; set; }
-
-        public static Dictionary<CatNo, ModTranslate> Map =
-            Enum.GetValues<CatNo>().ToDictionary(
-                categoryNo => categoryNo,
-                categoryNo => new ModTranslate(ModPackage.ToId.Apply(categoryNo), ModPackage.FromId.Apply(categoryNo))
-            );
+        public string PkgId { get; init; }
+        public string ModId { get; init; }
+        public CatNo Category { get; init; }
+        public Version PkgVersion { get; init; }
+        public static Dictionary<CatNo, (Func<ModInfo, int, int> ToId, Func<int, ModInfo> ToMod)> Map =
+            Enum.GetValues<CatNo>().ToDictionary(categoryNo => categoryNo, categoryNo => (ModPackage.ToId.Apply(categoryNo), ModPackage.FromId.Apply(categoryNo)));
     }
 
     public static class ModificationExtension
@@ -43,13 +31,16 @@ namespace SardineTail
 
         internal static T Defaults<T>(this T values) where T : new() =>
             values ?? new T();
+
+        internal static (int, ModInfo)[] ToEntry(this int index, ModInfo mod) => mod == null ? [] : [(index, mod)];
+
+        internal static (T, ModInfo)[] ToEntry<T>(this T index, ModInfo mod) => mod == null ? [] : [(index, mod)];
     }
 
-    public class HairsMods
+    public record HairsMods
     {
-        public ModInfo HairGloss { get; set; }
-        public Dictionary<ChaFileDefine.HairKind, ModInfo> Hairs { get; set; }
-
+        public ModInfo HairGloss { get; init; }
+        public Dictionary<ChaFileDefine.HairKind, ModInfo> Hairs { get; init; }
         public void Apply(HumanDataHair data)
         {
             data.glossId = ModInfo.Map[CatNo.mt_hairgloss].ToId(HairGloss, data.glossId);
@@ -58,13 +49,14 @@ namespace SardineTail
                     ModInfo.Map[ToCategoryNo(entry.Key)].ToId(entry.Value, data.parts[(int)entry.Key].id)
             );
         }
-
         public static HairsMods ToMods(HumanDataHair data) => new()
-        {
-            HairGloss = ModInfo.Map[CatNo.mt_hairgloss].ToMod(data.glossId),
-            Hairs = ToMod(data),
-        };
-
+            {
+                HairGloss = ModInfo.Map[CatNo.mt_hairgloss].ToMod(data.glossId),
+                Hairs = Enum.GetValues<ChaFileDefine.HairKind>()
+                    .Where(part => data.parts[(int)part] is not null)
+                    .SelectMany(part => part.ToEntry(ModInfo.Map[ToCategoryNo(part)].ToMod(data.parts[(int)part].id)))
+                    .ToDictionary()
+            };
         static CatNo ToCategoryNo(ChaFileDefine.HairKind value) => value switch
         {
             ChaFileDefine.HairKind.back => CatNo.bo_hair_b,
@@ -73,23 +65,13 @@ namespace SardineTail
             ChaFileDefine.HairKind.option => CatNo.bo_hair_o,
             _ => throw new ArgumentException()
         };
-
-        static Tuple<ChaFileDefine.HairKind, ModInfo> ToMod(ChaFileDefine.HairKind part, HumanDataHair.PartsInfo data) =>
-            new(part, ModInfo.Map[ToCategoryNo(part)].ToMod(data.id));
-
-        static Dictionary<ChaFileDefine.HairKind, ModInfo> ToMod(HumanDataHair data) =>
-            Enum.GetValues<ChaFileDefine.HairKind>()
-                .Where(part => data.parts[(int)part] is not null)
-                .Select(part => ToMod(part, data.parts[(int)part]))
-                .ToDictionary();
     }
 
-    public class ClothMods
+    public record ClothMods
     {
-        public ModInfo Part { get; set; }
-        public Dictionary<int, ModInfo> Paints { get; set; }
-        public Dictionary<int, ModInfo> Patterns { get; set; }
-
+        public ModInfo Part { get; init; }
+        public Dictionary<int, ModInfo> Paints { get; init; }
+        public Dictionary<int, ModInfo> Patterns { get; init; }
         internal void Apply(ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data)
         {
             data.id = ModInfo.Map[ToCategoryNo(part)].ToId(Part, data.id);
@@ -112,18 +94,12 @@ namespace SardineTail
             _ => throw new ArgumentException()
         };
 
-        static Tuple<int, ModInfo> ToMod(HumanDataPaintInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_body_paint].ToMod(data.ID));
-
-        static Tuple<int, ModInfo> ToMod(HumanDataClothes.PartsInfo.ColorInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_pattern].ToMod(data.patternInfo.pattern));
-
         static Tuple<ChaFileDefine.ClothesKind, ClothMods> ToMod(ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data) =>
             new(part, new ClothMods
             {
                 Part = ModInfo.Map[ToCategoryNo(part)].ToMod(data.id),
-                Paints = data.paintInfos.Select(ToMod).Where(item => item.Item2 != null).ToDictionary(),
-                Patterns = data.colorInfo.Select(ToMod).Where(item => item.Item2 != null).ToDictionary(),
+                Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_body_paint].ToMod(data.ID))).ToDictionary(),
+                Patterns = data.colorInfo.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_pattern].ToMod(data.patternInfo.pattern))).ToDictionary(),
             });
 
         internal static Dictionary<ChaFileDefine.ClothesKind, ClothMods> ToMod(HumanDataClothes data) =>
@@ -133,11 +109,10 @@ namespace SardineTail
                 .ToDictionary();
     }
 
-    public class AccessoryMods
+    public record AccessoryMods
     {
-        public ModInfo Part { get; set; }
-        public Dictionary<int, ModInfo> Patterns { get; set; }
-
+        public ModInfo Part { get; init; }
+        public Dictionary<int, ModInfo> Patterns { get; init; }
         internal void Apply(HumanDataAccessory.PartsInfo data)
         {
             data.id = ModInfo.Map[(CatNo)data.type].ToId(Part, data.id);
@@ -145,14 +120,11 @@ namespace SardineTail
                 data.colorInfo[entry.Key].pattern = ModInfo.Map[CatNo.mt_pattern].ToId(entry.Value, data.colorInfo[entry.Key].pattern));
         }
 
-        static Tuple<int, ModInfo> ToMod(HumanDataAccessory.PartsInfo.ColorInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_pattern].ToMod(data.pattern));
-
         static Tuple<int, AccessoryMods> ToMod(int slot, HumanDataAccessory.PartsInfo data) =>
             new(slot, new AccessoryMods
             {
                 Part = ModInfo.Map[(CatNo)data.type].ToMod(data.id),
-                Patterns = data.colorInfo.Select(ToMod).Where(item => item.Item2 != null).ToDictionary(),
+                Patterns = data.colorInfo.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_pattern].ToMod(data.pattern))).ToDictionary(),
             });
 
         internal static Dictionary<int, AccessoryMods> ToMod(HumanDataAccessory data) =>
@@ -162,13 +134,13 @@ namespace SardineTail
                 .ToDictionary();
     }
 
-    public class FaceMakeupMods
+    public record FaceMakeupMods
     {
-        public ModInfo Eyeshadow { get; set; }
-        public ModInfo Cheek { get; set; }
-        public ModInfo Lip { get; set; }
-        public Dictionary<int, ModInfo> Paints { get; set; }
-        public Dictionary<int, ModInfo> Layouts { get; set; }
+        public ModInfo Eyeshadow { get; init; }
+        public ModInfo Cheek { get; init; }
+        public ModInfo Lip { get; init; }
+        public Dictionary<int, ModInfo> Paints { get; init; }
+        public Dictionary<int, ModInfo> Layouts { get; init; }
 
         internal void Apply(HumanDataFaceMakeup data)
         {
@@ -181,28 +153,22 @@ namespace SardineTail
                 data.paintInfos[entry.Key].layoutID = ModInfo.Map[CatNo.facepaint_layout].ToId(entry.Value, data.paintInfos[entry.Key].layoutID));
         }
 
-        static Tuple<int, ModInfo> ToPaintMod(HumanDataPresetPaintInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_face_paint].ToMod(data.ID));
-
-        static Tuple<int, ModInfo> ToLayoutMod(HumanDataPresetPaintInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.facepaint_layout].ToMod(data.layoutID));
-
         internal static FaceMakeupMods ToMod(HumanDataFaceMakeup data) => new()
         {
             Eyeshadow = ModInfo.Map[CatNo.mt_eyeshadow].ToMod(data.eyeshadowId),
             Cheek = ModInfo.Map[CatNo.mt_cheek].ToMod(data.cheekId),
             Lip = ModInfo.Map[CatNo.mt_lip].ToMod(data.lipId),
-            Paints = data.paintInfos.Select(ToPaintMod).Where(item => item.Item2 != null).ToDictionary(),
-            Layouts = data.paintInfos.Select(ToLayoutMod).Where(item => item.Item2 != null).ToDictionary(),
+            Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_face_paint].ToMod(data.ID))).ToDictionary(),
+            Layouts = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.facepaint_layout].ToMod(data.layoutID))).ToDictionary(),
         };
     }
 
-    public class BodyMakeupMods
+    public record BodyMakeupMods
     {
-        public ModInfo Nail { get; set; }
-        public ModInfo NailLeg { get; set; }
-        public Dictionary<int, ModInfo> Paints { get; set; }
-        public Dictionary<int, ModInfo> Layouts { get; set; }
+        public ModInfo Nail { get; init; }
+        public ModInfo NailLeg { get; init; }
+        public Dictionary<int, ModInfo> Paints { get; init; }
+        public Dictionary<int, ModInfo> Layouts { get; init; }
 
         internal void Apply(HumanDataBodyMakeup data)
         {
@@ -214,28 +180,22 @@ namespace SardineTail
                 data.paintInfos[entry.Key].layoutID = ModInfo.Map[CatNo.bodypaint_layout].ToId(entry.Value, data.paintInfos[entry.Key].layoutID));
         }
 
-        static Tuple<int, ModInfo> ToPaintMod(HumanDataPresetPaintInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_body_paint].ToMod(data.ID));
-
-        static Tuple<int, ModInfo> ToLayoutMod(HumanDataPresetPaintInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.bodypaint_layout].ToMod(data.layoutID));
-
         internal static BodyMakeupMods ToMod(HumanDataBodyMakeup data) => new()
         {
             Nail = ModInfo.Map[CatNo.bo_nail].ToMod(data.nailInfo.ID),
             NailLeg = ModInfo.Map[CatNo.bo_nail_leg].ToMod(data.nailLegInfo.ID),
-            Paints = data.paintInfos.Select(ToPaintMod).Where(item => item.Item2 != null).ToDictionary(),
-            Layouts = data.paintInfos.Select(ToLayoutMod).Where(item => item.Item2 != null).ToDictionary(),
+            Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_body_paint].ToMod(data.ID))).ToDictionary(),
+            Layouts = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.bodypaint_layout].ToMod(data.layoutID))).ToDictionary(),
         };
     }
 
-    public class CoordMods : CoordinateExtension<CoordMods>
+    public record CoordMods : CoordinateExtension<CoordMods>, CoordinateConversion<CoordMods>
     {
-        public HairsMods Hairs { get; set; }
-        public Dictionary<ChaFileDefine.ClothesKind, ClothMods> Clothes { get; set; }
-        public Dictionary<int, AccessoryMods> Accessories { get; set; }
-        public BodyMakeupMods BodyMakeup { get; set; }
-        public FaceMakeupMods FaceMakeup { get; set; }
+        public HairsMods Hairs { get; init; }
+        public Dictionary<ChaFileDefine.ClothesKind, ClothMods> Clothes { get; init; }
+        public Dictionary<int, AccessoryMods> Accessories { get; init; }
+        public BodyMakeupMods BodyMakeup { get; init; }
+        public FaceMakeupMods FaceMakeup { get; init; }
 
         public CoordMods Merge(CoordLimit limit, CoordMods mods) => new()
         {
@@ -245,6 +205,7 @@ namespace SardineTail
             Clothes = (limit & CoordLimit.Clothes) is CoordLimit.None ? Clothes : mods.Clothes,
             Hairs = (limit & CoordLimit.Hair) is CoordLimit.None ? Hairs : mods.Hairs,
         };
+        public CoordMods Convert(HumanDataCoordinate data) => ToMods(data);
 
         internal void Apply(HumanDataCoordinate data)
         {
@@ -260,7 +221,7 @@ namespace SardineTail
         }
 
         internal static void Store(Human human) =>
-            Extension.Coord<CharaMods, CoordMods>(human, ToMods(human.coorde.Now));
+            Extension<CharaMods, CoordMods>.Humans.NowCoordinate[human] = ToMods(human.coorde.Now);
 
         internal static CoordMods ToMods(HumanDataCoordinate data) => new()
         {
@@ -272,12 +233,12 @@ namespace SardineTail
         };
     }
 
-    public class EyeMods
+    public record EyeMods
     {
-        public ModInfo Eye { get; set; }
-        public ModInfo Pupil { get; set; }
-        public ModInfo Gradation { get; set; }
-        public Dictionary<int, ModInfo> Highlights { get; set; }
+        public ModInfo Eye { get; init; }
+        public ModInfo Pupil { get; init; }
+        public ModInfo Gradation { get; init; }
+        public Dictionary<int, ModInfo> Highlights { get; init; }
 
         internal void Apply(HumanDataFace.PupilInfo data)
         {
@@ -289,15 +250,12 @@ namespace SardineTail
                      ModInfo.Map[CatNo.mt_eye_hi_up].ToId(val, data.highlightInfos[key].id));
         }
 
-        static Tuple<int, ModInfo> ToMod(HumanDataFace.HighlightInfo data, int index) =>
-            new(index, ModInfo.Map[CatNo.mt_eye_hi_up].ToMod(data.id));
-
         internal static EyeMods ToMod(HumanDataFace.PupilInfo data) => new()
         {
             Eye = ModInfo.Map[CatNo.mt_eye].ToMod(data.id),
             Pupil = ModInfo.Map[CatNo.mt_eyepipil].ToMod(data.overId),
             Gradation = ModInfo.Map[CatNo.mt_eye_gradation].ToMod(data.gradMaskId),
-            Highlights = data.highlightInfos.Select(ToMod).Where(item => item.Item2 != null).ToDictionary(),
+            Highlights = data.highlightInfos.SelectMany((data, index) => index.ToEntry(ModInfo.Map[CatNo.mt_eye_hi_up].ToMod(data.id))).ToDictionary(),
         };
     }
 
@@ -332,9 +290,6 @@ namespace SardineTail
             Eyes.Defaults(data.pupil.Count).ForEach((index, value) => value.Apply(data.pupil[index]));
         }
 
-        static Tuple<int, EyeMods> ToMod(HumanDataFace.PupilInfo data, int index) =>
-            new(index, EyeMods.ToMod(data));
-
         internal static FaceMods ToMod(HumanDataFace data) => new()
         {
             Head = ModInfo.Map[CatNo.bo_head].ToMod(data.headId),
@@ -348,7 +303,7 @@ namespace SardineTail
             EyelineDown = ModInfo.Map[CatNo.mt_eyeline_down].ToMod(data.eyelineDownId),
             EyelineUp = ModInfo.Map[CatNo.mt_eyeline_up].ToMod(data.eyelineUpId),
             EyeWhite = ModInfo.Map[CatNo.mt_eye_white].ToMod(data.whiteId),
-            Eyes = data.pupil.Select(ToMod).Where(item => item.Item2 != null).ToDictionary()
+            Eyes = data.pupil.Select((data, index) => (index, EyeMods.ToMod(data))).ToDictionary()
         };
     }
 
@@ -376,13 +331,14 @@ namespace SardineTail
         };
     }
     [Extension<CharaMods, CoordMods>(Plugin.Name, "mods.json")]
-    public class CharaMods : CharacterExtension<CharaMods>, ComplexExtension<CharaMods, CoordMods>
+    public record CharaMods :
+        CharacterExtension<CharaMods>, ComplexExtension<CharaMods, CoordMods>, CharacterConversion<CharaMods>
     {
-        public ModInfo Figure { get; set; }
-        public ModInfo Graphic { get; set; }
-        public FaceMods Face { get; set; }
-        public BodyMods Body { get; set; }
-        public Dictionary<int, CoordMods> Coordinates { get; set; }
+        public ModInfo Figure { get; init; }
+        public ModInfo Graphic { get; init; }
+        public FaceMods Face { get; init; }
+        public BodyMods Body { get; init; }
+        public Dictionary<int, CoordMods> Coordinates { get; init; }
         internal int FigureId = -1;
         public CharaMods Merge(CharaLimit limit, CharaMods mods) => new()
         {
@@ -393,6 +349,13 @@ namespace SardineTail
             Graphic = (limit & CharaLimit.Graphic) is CharaLimit.None ? Graphic : mods.Graphic,
             Coordinates = (limit & CharaLimit.Coorde) is CharaLimit.None ? Coordinates : mods.Coordinates,
         };
+        public CharaMods Convert(HumanData data) => (this with
+        {
+            Body = BodyMods.ToMod(data.Custom.Body),
+            Face = FaceMods.ToMod(data.Custom.Face),
+            Graphic = ModInfo.Map[CatNo.mt_ramp].ToMod(data.Graphic.RampID),
+            Coordinates = data.Coordinates.Index().ToDictionary(tuple => tuple.Item2, tuple => CoordMods.ToMods(tuple.Item1))
+        }).With(() => Plugin.Instance.Log.LogInfo("conversion run!"));
 
         public CoordMods Get(int coordinateType) =>
             Coordinates.Defaults().GetValueOrDefault(coordinateType, new ());
@@ -418,7 +381,7 @@ namespace SardineTail
         }
 
         internal static void Store(Human human) =>
-            Extension.Chara<CharaMods, CoordMods>(human, ToMods(human, Extension.Chara<CharaMods, CoordMods>(human)));
+            Extension<CharaMods, CoordMods>.Humans[human] = ToMods(human, Extension<CharaMods, CoordMods>.Humans[human]);
 
         static CharaMods ToMods(Human human, CharaMods mods) => new CharaMods()
         {

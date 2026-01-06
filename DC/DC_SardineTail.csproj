@@ -1,91 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net6</TargetFramework>
-        <AssemblyName>DC_SardineTail</AssemblyName>
         <Description>Runtime mod loader for DigitalCraft</Description>
-        <LangVersion>latest</LangVersion>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<GameName>DigitalCraft</GameName>
-        <GamePath>$([MSBuild]::GetRegistryValue('HKEY_CURRENT_USER\Software\ILLGAMES\$(GameName)','INSTALLDIR'))</GamePath>
-        <DefineConstants>$(GameName)</DefineConstants>
+        <GameName>DigitalCraft</GameName>
+        <AssetPath>abdata</AssetPath>
     </PropertyGroup>
-	<ItemGroup>
-		<Compile Include="..\SardineTail.cs"/>
-		<Compile Include="..\Definitions.cs"/>
-		<Compile Include="..\Modifications.cs"/>
-		<Reference Include="0Harmony">
-			<HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.Core">
-			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Core.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.Unity.IL2CPP">
-			<HintPath>$(GamePath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Il2CppInterop.Runtime">
-			<HintPath>$(GamePath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Il2Cppmscorlib">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Il2Cppmscorlib.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.CoreModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.CoreModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.AssetBundleModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.AssetBundleModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UnityEngine.ImageConversionModule">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UniRx">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UniRx.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="UniTask">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\UniTask.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Assembly-CSharp">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\Assembly-CSharp.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="IL">
-			<HintPath>$(GamePath)\BepInEx\$(GameName)\interop\IL.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="CoastalSmell">
-			<HintPath>$(GamePath)\BepInEx\plugins\DC_CoastalSmell.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Fishbone">
-			<HintPath>$(GamePath)\BepInEx\plugins\DC_Fishbone.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="VarietyOfScales">
-			<HintPath>$(GamePath)\BepInEx\plugins\DC_VarietyOfScales.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-	</ItemGroup>
-	<Target Name="Deploy" AfterTargets="Build">
-		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(GamePath)\BepInEx\plugins\" />
-	</Target>
-	<Target Name="Release" AfterTargets="Build">
-		<MakeDir Directories="..\Release\$(GameName)\sardines"/>
-		<MakeDir Directories="..\Release\$(GameName)\UserData\plugins\SardineTail\packages"/>
-		<Copy SourceFiles="..\Resource\sardinetail.unity3d" DestinationFolder="..\Release\$(GameName)\abdata"/>
-		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\Release\$(GameName)\BepinEx\plugins"/>
-		<ZipDirectory SourceDirectory="..\Release\$(GameName)" Overwrite="true" DestinationFile="..\$(AssemblyName).zip"/>
-	</Target>
-	<Target Name="CleanRelease" AfterTargets="Clean">
-		<RemoveDir Directories="..\Release\$(GameName)"/>
-		<Delete Files="..\$(AssemblyName).zip"/>
-	</Target>
+    <ItemGroup>
+        <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.752"/>
+		<PackageReference Include="BepInEx.KeyboardShortcut.IL2CPP" Version="18.4.1"/>
+        <PackageReference Include="IllusionLibs.DigitalCraft.AllPackages" Version="2025.11.21"/>
+    </ItemGroup>
+    <Import Project="../Tasks.xml"/>
 </Project>

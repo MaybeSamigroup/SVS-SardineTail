@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <TargetFramework>net6</TargetFramework>
+        <PluginName>SardineTail</PluginName>
+        <LangVersion>latest</LangVersion>
+        <GamePath>$([MSBuild]::GetRegistryValue('HKEY_CURRENT_USER\Software\ILLGAMES\$(GameName)','INSTALLDIR'))</GamePath>
+        <GamePrefix>$([System.IO.Path]::GetFileName($(MSBuildProjectDirectory)))</GamePrefix>
+        <AssemblyName>$(GamePrefix)_$(PluginName)</AssemblyName>
+        <DefineConstants>$(GameName)</DefineConstants>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="System.Reactive" Version="6.1.0"/>
+        <ProjectReference Include="../../SVS-Fishbone/CoastalSmell/$(GamePrefix)/$(GamePrefix)_CoastalSmell.csproj">
+            <Private>False</Private>
+            <ExcludeAssets>all</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="../../SVS-Fishbone/Fishbone/$(GamePrefix)/$(GamePrefix)_Fishbone.csproj">
+            <Private>False</Private>
+            <ExcludeAssets>all</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="../../SVS-VarietyOfScales/$(GamePrefix)/$(GamePrefix)_VarietyOfScales.csproj" Condition="'$(GameName)' != 'Aicomi'">
+            <Private>False</Private>
+            <ExcludeAssets>all</ExcludeAssets>
+        </ProjectReference>
+		<Compile Include="../$(PluginName).cs"/>
+		<Compile Include="../Definitions.cs"/>
+		<Compile Include="../Modifications.cs"/>
+        <AssetBundle Include="../Resource/sardinetail.unity3d"/>
+    </ItemGroup>
+    <Target Name="Clone" BeforeTargets="Build" Condition="!Exists('../../SVS-Fishbone')">
+        <Exec WorkingDirectory="../.." Command="git clone https://github.com/MaybeSamigroup/SVS-Fishbone.git SVS-Fishbone"/>
+    </Target>
+    <Target Name="CloneVoS" BeforeTargets="Build" Condition="!Exists('../../SVS-VarietyOfScales')">
+        <Exec WorkingDirectory="../.." Command="git clone https://github.com/MaybeSamigroup/SVS-VarietyOfScales.git SVS-VarietyOfScales"/>
+    </Target>
+    <Target Name="Deploy" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+        <Copy SourceFiles="$(OutputPath)/$(AssemblyName).dll" DestinationFolder="$(GamePath)/BepInEx/plugins/" />
+        <Copy SourceFiles="@(AssetBundle)" DestinationFolder="$(GamePath)/$(AssetPath)"/>
+		<MakeDir Directories="$(GamePath)/sardines"/>
+		<MakeDir Directories="$(GamePath)/UserData/plugins/$(PluginName)/packages"/>
+    </Target>
+    <Target Name="Release" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+        <Copy SourceFiles="$(OutputPath)/$(AssemblyName).dll" DestinationFolder="../Release/$(GameName)/BepinEx/plugins"/>
+        <Copy SourceFiles="@(AssetBundle)" DestinationFolder="../Release/$(GameName)/$(AssetPath)"/>
+		<MakeDir Directories="../Release/$(GameName)/sardines"/>
+		<MakeDir Directories="../Release/$(GameName)/UserData/plugins/$(PluginName)/packages"/>
+        <ZipDirectory SourceDirectory="../Release/$(GameName)" Overwrite="true" DestinationFile="../$(AssemblyName).zip"/>
+    </Target>
+    <Target Name="CleanRelease" AfterTargets="Clean">
+        <RemoveDir Directories="../Release/$(GameName)"/>
+        <Delete Files="../$(AssemblyName).zip"/>
+    </Target>
+</Project>
