@@ -1,48 +1,67 @@
 # SVS-SardineTail
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+  - [Aicomi](#aicomi)
+  - [SamabakeScramble](#samabakescramble)
+  - [DigitalCraft](#digitalcraft-standalone)
+- [Installation](#installation)
+- [Migration between versions](#migration-between-versions)
+- [How to Use](#how-to-use)
+
 Fundamental plugin to develop soft mod for Aicomi, SamabakeScramble and modification loader for DigitalCraft.
 
-## Prerequisites (Aicomi)
+Sources include [LZMA SDK](https://www.7-zip.org/sdk.html) under public domain.
+
+Binary releases contain required [K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4) distributed under MIT license.
+
+## Prerequisites
+
+### Aicomi
+
+Confirmed working under Aicomi 1.0.7.
 
 - [AC-HF_Patch](https://github.com/ManlyMarco/AC-HF_Patch)
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
+- [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
+  - 4.0.0/2.0.0 or later
 
-Confirmed working under Aicomi 1.0.1.
+### SamabakeScramble
 
-## Prerequisites (SamabakeScramble)
+Confirmed working under SamabakeScramble 1.1.6
 
 - [SVS-HF_Patch](https://github.com/ManlyMarco/SVS-HF_Patch)
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
+- [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
+  - 4.0.0/2.0.0 or later
 
-Confirmed working under SamabakeScramble 1.1.6
-
-## Prerequisites (DigitalCraft Standalone)
-
-- [BepInEx](https://github.com/BepInEx/BepInEx)
-  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #752
+### DigitalCraft Standalone
 
 Confirmed working under DigitalCraft 3.0.0.
 
-## Prerequisites (Dependent BepInEx plugin)
-
+- [BepInEx](https://github.com/BepInEx/BepInEx)
+  - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #752 or later
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 3.1.5/1.1.9 or later
+  - 4.0.0/2.0.0 or later
 
 ## Installation
 
 Extract the [latest release](https://github.com/MaybeSamigroup/SVS-SardineTail/releases/latest) to your game install directory.
 
-## Migration from older release
+## Migration between versions
+
+### Migration from 1.0.0
 
 Remove `SardineTail.dll` from BepinEx/plugins.
 
 Plugin assembly names are now `SVS_SardineTail.dll` and `DC_SardineTail.dll`.
 
-## Migration from 1.X.X to 2.X.X
+### Migration from 1.X.X to 2.X.X
 
 These directories contained in previous releases are no longer used.
 Please move it contents to new one and delete it.
@@ -67,7 +86,7 @@ Refer to the [Tutorial](https://github.com/MaybeSamigroup/SVS-SardineTail/wiki/Q
 
 Please follow the [installation instructions](https://github.com/MaybeSamigroup/SVS-Fishbone).
 
-Mods for SamabakeScramble-made characters are loaded from the `sardines` directory in the SamabakeScramble installation directory.
+Mods for SamabakeScramble or Aicomi made characters are loaded from the `sardines` directory in the each game's installation directory.
 
 Currently, the `sardines` directory under the DigitalCraft installation directory is not used.
 

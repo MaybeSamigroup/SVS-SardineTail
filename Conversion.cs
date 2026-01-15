@@ -119,7 +119,7 @@ namespace SardineTail
         }
         static IEnumerable<ConvertEntry> Convert(Category category) =>
             Human.lstCtrl._table[category.Index].Yield()
-                .Where(tuple => ModInfo.Map[category.Index].ToMod(tuple.Item1) is null)
+                .Where(tuple => ModPackage.FromId(category.Index, tuple.Item1) is null)
                 .Select(tuple => Convert(category, tuple.Item1, tuple.Item2,
                     category.Entries
                         .Where(entry => entry.Value == Vtype.Store)

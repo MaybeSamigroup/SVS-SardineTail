@@ -11,6 +11,7 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="System.Reactive" Version="6.1.0"/>
+        <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8"/>
         <ProjectReference Include="../../SVS-Fishbone/CoastalSmell/$(GamePrefix)/$(GamePrefix)_CoastalSmell.csproj">
             <Private>False</Private>
             <ExcludeAssets>all</ExcludeAssets>
@@ -26,7 +27,14 @@
 		<Compile Include="../$(PluginName).cs"/>
 		<Compile Include="../Definitions.cs"/>
 		<Compile Include="../Modifications.cs"/>
+		<Compile Include="../UnityFS.cs"/>
+		<Compile Include="../7zip/ICoder.cs"/>
+		<Compile Include="../7zip/Common/*.cs"/>
+		<Compile Include="../7zip/Compress/LZ/*.cs"/>
+		<Compile Include="../7zip/Compress/LZMA/*.cs"/>
+		<Compile Include="../7zip/Compress/RangeCoder/*.cs"/>
         <AssetBundle Include="../Resource/sardinetail.unity3d"/>
+        <NetDll Include="../Resource/dotnet/*"/>
     </ItemGroup>
     <Target Name="Clone" BeforeTargets="Build" Condition="!Exists('../../SVS-Fishbone')">
         <Exec WorkingDirectory="../.." Command="git clone https://github.com/MaybeSamigroup/SVS-Fishbone.git SVS-Fishbone"/>
@@ -37,12 +45,14 @@
     <Target Name="Deploy" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
         <Copy SourceFiles="$(OutputPath)/$(AssemblyName).dll" DestinationFolder="$(GamePath)/BepInEx/plugins/" />
         <Copy SourceFiles="@(AssetBundle)" DestinationFolder="$(GamePath)/$(AssetPath)"/>
+        <Copy SourceFiles="@(NetDll)" DestinationFolder="$(GamePath)/dotnet"/>
 		<MakeDir Directories="$(GamePath)/sardines"/>
 		<MakeDir Directories="$(GamePath)/UserData/plugins/$(PluginName)/packages"/>
     </Target>
     <Target Name="Release" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
         <Copy SourceFiles="$(OutputPath)/$(AssemblyName).dll" DestinationFolder="../Release/$(GameName)/BepinEx/plugins"/>
         <Copy SourceFiles="@(AssetBundle)" DestinationFolder="../Release/$(GameName)/$(AssetPath)"/>
+        <Copy SourceFiles="@(NetDll)" DestinationFolder="../Release/$(GameName)/dotnet"/>
 		<MakeDir Directories="../Release/$(GameName)/sardines"/>
 		<MakeDir Directories="../Release/$(GameName)/UserData/plugins/$(PluginName)/packages"/>
         <ZipDirectory SourceDirectory="../Release/$(GameName)" Overwrite="true" DestinationFile="../$(AssemblyName).zip"/>

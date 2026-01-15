@@ -4,6 +4,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Reactive.Disposables;
 using UnityEngine;
 using Character;
@@ -19,7 +21,6 @@ using BepInEx.Configuration;
 using Il2CppInterop.Runtime.Injection;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using CoastalSmell;
-using Fishbone;
 using KeysDefs = Il2CppSystem.Collections.Generic.IReadOnlyList<ChaListDefine.KeyType>;
 using KeysList = Il2CppSystem.Collections.Generic.List<ChaListDefine.KeyType>;
 using ValsList = Il2CppSystem.Collections.Generic.List<string>;
@@ -35,8 +36,11 @@ namespace SardineTail
     internal static partial class CategoryExtension
     {
         static readonly Dictionary<CatNo, int> Identities =
+#if DEBUG
             Enum.GetValues<CatNo>().ToDictionary(item => item, item => ModInfo.MIN_ID + new System.Random().Next(0, 100));
-
+#else
+            Enum.GetValues<CatNo>().ToDictionary(item => item, item => ModInfo.MIN_ID);
+#endif
         internal static int AssignId(this CatNo categoryNo) => Identities[categoryNo]++;
 
         static KeysList ResolveKeys(this Category category) =>
@@ -57,12 +61,13 @@ namespace SardineTail
     {
         internal const string HARD_MIGRATION = "hardmig.json";
         internal const string SOFT_MIGRATION = "softmig.json";
+        internal int GameId;
         internal string PkgId;
         internal T Container;
         internal IEnumerable<ModNode<T>> Nodes;
         internal IEnumerable<ModLeaf<T>> Csvs;
-        internal CategoryCollector(string pkgId, T container) =>
-            ((PkgId, Container) = (pkgId, container)).With(Initialize);
+        internal CategoryCollector(int gameId, string pkgId, T container) =>
+            ((GameId, PkgId, Container) = (gameId, pkgId, container)).With(Initialize);
         void Initialize() =>
             (Nodes, Csvs) = Contents()
                 .GroupBy(paths => paths[0]).Aggregate<IGrouping<string, string[]>, (IEnumerable<ModNode<T>>, IEnumerable<ModLeaf<T>>)>(([], []),
@@ -102,11 +107,11 @@ namespace SardineTail
         string NormalizedValue(Values mods, Entry entry) =>
             CategoryExtension.Normalize(mods.GetValueOrDefault(entry.Index, "0"));
         internal string ResolveImage(string path) =>
-            path is "0" ? "0" : Root.Exists(path) ? $"{Root.PkgId}:{path}" : path;
+            path is "0" ? "0" : Root.Exists(path) ? $"{Root.GameId}:{Root.PkgId}:{path}" : path;
         internal string ResolveImage(string bundle, string path) =>
-            path is "0" ? "0" : Root.Exists(path) ? $"{Root.PkgId}:{path}" : $"{Root.PkgId}:{bundle}:{path}";
+            path is "0" ? "0" : Root.Exists(path) ? $"{Root.GameId}:{Root.PkgId}:{path}" : $"{Root.GameId}:{Root.PkgId}:{bundle}:{path}";
         internal string ResolveAsset(string bundle, string path) =>
-            path is "0" ? "0" : $"{Root.PkgId}:{bundle}:{path}:";
+            path is "0" ? "0" : $"{Root.GameId}:{Root.PkgId}:{bundle}:{path}:";
         Mod ResolveEntry(Values mods, Entry entry) =>
             entry.Value switch
             {
@@ -121,6 +126,10 @@ namespace SardineTail
                 Vtype.Image => new(entry.Index, ResolveImage(path, NormalizedValue(mods, entry))),
                 _ => new(entry.Index, NormalizedValue(mods, entry))
             };
+        // Resolves children entries based on the path value
+        // If path is "0" (default), resolve each child without bundle
+        // If path doesn't exist, resolve children with the path as bundle name
+        // Otherwise, resolve children with the path as bundle and use default asset bundle for parent
         Mods ResolveChildren(Values mods, Ktype key, string path, IEnumerable<Entry> children) =>
             path is "0" ? children.Select(child => ResolveEntry(mods, child)).Append(new Mod(key, "0")) :
                 !Root.Exists(path)
@@ -187,7 +196,7 @@ namespace SardineTail
     }
     internal class DevCollector : CategoryCollector<string>
     {
-        internal DevCollector(string pkgId, string path) : base(pkgId, path) { }
+        internal DevCollector(int gameId, string pkgId, string path) : base(gameId, pkgId, path) { }
         internal override IEnumerable<string[]> Contents() =>
             Contents(new DirectoryInfo(Container));
         IEnumerable<string[]> Contents(DirectoryInfo info) =>
@@ -213,7 +222,7 @@ namespace SardineTail
     }
     internal class StpCollector : CategoryCollector<ZipArchive>
     {
-        internal StpCollector(string pkgId, string path) : base(pkgId, new ZipArchive(File.OpenRead(path))) { }
+        internal StpCollector(int gameId, string pkgId, string path) : base(gameId, pkgId, new ZipArchive(File.OpenRead(path))) { }
         internal override IEnumerable<string[]> Contents() =>
             Container.Entries
                 .Where(entry => !entry.FullName.EndsWith(Path.AltDirectorySeparatorChar))
@@ -240,10 +249,96 @@ namespace SardineTail
         public string ModId { get; set; }
         public Version Version { get; set; }
     }
+
     internal abstract partial class ModPackage
     {
         static readonly Texture2D DefaultTexture = new(0, 0);
-        internal static readonly AssetBundle DefaultBundle = new();
+        static readonly Dictionary<string, AssetBundle> Cache = new()
+        {
+            [""] = new()
+        };
+        static Dictionary<int, Dictionary<string, ModPackage>> Packages =
+            IDS.ToDictionary(gameId => gameId, _ => new Dictionary<string, ModPackage>());
+        static Dictionary<int, Dictionary<CatNo, Dictionary<int, ModInfo>>> HardMigrations =
+            IDS.ToDictionary(gameId => gameId, _ => Enum.GetValues<CatNo>().ToDictionary(cat => cat, cat => new Dictionary<int, ModInfo>()));
+        static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod =
+            Enum.GetValues<CatNo>().ToDictionary(cat => cat, cat => new Dictionary<int, ModInfo>());
+        static Action<CatNo, int, ModInfo> RegisterIdToMod =
+            (categoryNo, id, mod) => IdToMod[categoryNo][id] = mod;
+        static Action<int, CatNo, int, ModInfo> RegisterHardMigration =
+            (gameId, categoryNo, id, mod) => HardMigrations[gameId][categoryNo][id] = mod; 
+        internal static Func<int, string, string, bool> Exists =
+            (gameId, pkgId, path) => Packages[gameId].TryGetValue(pkgId, out var pkg) && pkg.ResourceExists(path);
+        internal static Func<CatNo, int, ModInfo> FromId =
+            (categoryNo, id) => IdToMod[categoryNo].TryGetValue(id, out var mod) ? mod : null;
+        internal static Func<int, CatNo, ModInfo, int, int> ToId =
+            (gameId, categoryNo, mod, id) =>
+                HardMigrations[gameId][categoryNo].TryGetValue(id, out var soft)
+                    ? Packages[gameId][soft.PkgId].TranslateId(soft, id) : mod?.PkgId == null ? id
+                    : Packages[gameId].TryGetValue(mod.PkgId, out var pkg) ? pkg.TranslateId(mod, id)
+                    : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing ({gameId}): {mod.PkgId}"));
+
+        internal static Func<string[], IEnumerable<Version>> ToVersion =>
+            items => items.Length switch
+            {
+                0 => [],
+                1 => [],
+                _ => Version.TryParse(items[^1], out var version) ? [version] : [],
+            };
+        static NormalData ToNormalData(UnityEngine.Object asset) =>
+            asset is null ? null : new NormalData(asset.Pointer);
+
+        internal static NormalData ToNormalData(string[] items) =>
+            items.Length switch
+            {
+                5 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? ToNormalData(pkg.GetAsset(items[2], items[3], Il2CppInterop.Runtime.Il2CppType.Of<NormalData>())) : null,
+                _ => null
+            };
+
+        static Subject<UnityEngine.Object> PrefabLoad = new();
+
+        internal static IObservable<GameObject> OnPrefabLoad => PrefabLoad.AsObservable().Select(obj => new GameObject(obj.Pointer));
+
+        internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
+            items.Length switch
+            {
+                3 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetTexture(Path.ChangeExtension(items[2], ".png")) : null,
+
+                4 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetAsset(items[2], items[3], type) : null,
+
+                5 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetAsset(items[2], items[3], type).With(PrefabLoad.OnNext) : null,
+
+                _ => null
+            };
+        internal static UnityEngine.Object ToAsset(string[] items) =>
+            items.Length switch
+            {
+                3 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
+
+                4 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetAsset(items[2], items[3], Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>()) : null,
+
+                5 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
+                    ? pkg.GetAsset(items[2], items[3], Il2CppInterop.Runtime.Il2CppType.Of<GameObject>()).With(PrefabLoad.OnNext) : null,
+
+                _ => null
+            };
+        internal static void InitializePackages(int gameId, string path) =>
+            StpPackage.Collect(gameId, Path.Combine(path, "sardines"))
+                .Concat(DevPackage.Collect(gameId, Path.Combine(path, "UserData", "plugins", Plugin.Name, "packages")))
+                .GroupBy(item => item.PkgId)
+                .ToDictionary(group => group.Key, group => group.OrderBy(item => item.PkgVersion).Last())
+                .ForEach(entry => Packages[gameId][entry.Key] = entry.Value.With(entry.Value.Initialize));
+    }
+
+    internal abstract partial class ModPackage
+    {
+        internal int GameId;
         internal string PkgPath;
         internal string PkgId;
         internal Version PkgVersion;
@@ -252,13 +347,16 @@ namespace SardineTail
         internal abstract byte[] ToBytes(string path);
         internal abstract string ToString(string path);
         internal abstract Stream ToStream(string path);
+        internal abstract string ToAssetBundleIdentity(string path);
         internal abstract AssetBundle ToAssetBundle(string path);
         internal readonly Dictionary<string, int> ModToId = new();
-        internal readonly Dictionary<string, AssetBundle> Cache = new();
+        internal Dictionary<string, string> IdentityCache = new();
         internal Dictionary<Version, Dictionary<string, string>> SoftMigrations = new();
+        internal ModPackage(int gameId, string path, string pkgId, Version version) =>
+            (GameId, PkgPath, PkgId, PkgVersion) = (gameId, path, pkgId, version);
         internal void LoadHardMigrations(Dictionary<CatNo, Dictionary<int, HardMigrationInfo>> info) =>
             info.ForEach(entry => entry.Value.ForEach(subentry =>
-                RegisterHardMigration(entry.Key, subentry.Key, new ModInfo()
+                RegisterHardMigration(GameId, entry.Key, subentry.Key, new ModInfo()
                 {
                     PkgVersion = subentry.Value.Version,
                     PkgId = PkgId,
@@ -277,80 +375,38 @@ namespace SardineTail
                 .With(path.Split(Path.AltDirectorySeparatorChar).WrapMode) : DefaultTexture;
         Texture2D GetTexture(byte[] bytes) =>
             new Texture2D(256, 256).With(t2d => ImageConversion.LoadImage(t2d, bytes));
-        AssetBundle GetAssetBundle(string path) =>
-            Cache.TryGetValue(path, out var cache) ? cache : CacheAssetBundle(path);
-        AssetBundle CacheAssetBundle(string path) =>
-            ResourceExists(path) ? Cache[path] = ToAssetBundle(path) : DefaultBundle;
+        AssetBundle GetAssetBundle(string path, string identity) =>
+            Cache.TryGetValue(identity, out var cache) ? cache : CacheAssetBundle(path, identity);
+        AssetBundle CacheAssetBundle(string path, string identity) =>
+            Cache[identity] = ToAssetBundle(path);
+        string GetAssetBundleIdentity(string path) =>
+            IdentityCache.TryGetValue(path, out var identity) ? identity : CacheAssetBundleIdentity(path);
+        string CacheAssetBundleIdentity(string path) =>
+            ResourceExists(path) ? IdentityCache[path] = ToAssetBundleIdentity(path) : "";
         UnityEngine.Object GetAsset(string bundle, string asset, Il2CppSystem.Type type) =>
-            GetAssetBundle(bundle)?.LoadAsset(asset, type);
+            GetAssetBundle(bundle, GetAssetBundleIdentity(bundle))?.LoadAsset(asset, type);
         internal void Unload() =>
             Cache.With(cache => cache.Values.ForEach(item => item.Unload(true))).Clear();
-        internal static Func<string[], IEnumerable<Version>> ToVersion =>
-            items => items.Length switch
-            {
-                0 => [],
-                1 => [],
-                _ => Version.TryParse(items[^1], out var version) ? [version] : [],
-            };
-        static Dictionary<string, ModPackage> Packages = new();
-        static Dictionary<CatNo, Dictionary<int, ModInfo>> IdToMod = new();
-        static Dictionary<CatNo, Dictionary<int, ModInfo>> HardMigrations = new();
-        static Action<CatNo, int, ModInfo> RegisterIdToMod =
-            (categoryNo, id, mod) => (IdToMod[categoryNo] = IdToMod.TryGetValue(categoryNo, out var mods) ? mods : new()).Add(id, mod);
-        static Action<CatNo, int, ModInfo> RegisterHardMigration =
-            (categoryNo, id, info) => (HardMigrations.GetValueOrDefault(categoryNo) ?? (HardMigrations[categoryNo] = new())).TryAdd(id, info);
-        internal static Func<string, string, bool> Exists =
-            (pkgId, path) => Packages.TryGetValue(pkgId, out var pkg) && pkg.ResourceExists(path);
-        internal static Func<CatNo, int, ModInfo> FromId =
-            (categoryNo, id) => IdToMod.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var mod) ? mod : null;
-        internal static Func<CatNo, ModInfo, int, int> ToId =
-            (categoryNo, info, id) =>
-                HardMigrations.TryGetValue(categoryNo, out var mods) && mods.TryGetValue(id, out var soft)
-                    ? Packages[soft.PkgId].TranslateId(soft, id) : info?.PkgId == null ? id
-                    : Packages.TryGetValue(info.PkgId, out var pkg) ? pkg.TranslateId(info, id)
-                    : id.With(() => Plugin.Instance.Log.LogMessage($"mod package missing: {info.PkgId}"));
-        static NormalData ToNormalData(UnityEngine.Object asset) =>
-            asset is null ? null : new NormalData(asset.Pointer);
-        internal static NormalData ToNormalData(string[] items) =>
-            items.Length switch
-            {
-                4 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? ToNormalData(modPkg.GetAsset(items[1], items[2],
-                        Il2CppInterop.Runtime.Il2CppType.Of<NormalData>())) : null,
-                _ => null
-            };
-        internal static UnityEngine.Object ToAsset(string[] items, Il2CppSystem.Type type) =>
-            items.Length switch
-            {
-                2 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
-                3 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetAsset(items[1], items[2], type) : null,
-#if Aicomi
-                4 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? IOExtension.PreprocessPrefab(modPkg.GetAsset(items[1], items[2], type)) : null,
-#else
-                4 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetAsset(items[1], items[2], type) : null,
-#endif
-                _ => null
-            };
-        internal static UnityEngine.Object ToAsset(string[] items) =>
-            items.Length switch
-            {
-                2 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
-                3 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetAsset(items[1], items[2], Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>()) : null,
-                4 => Packages.TryGetValue(items[0], out var modPkg)
-                    ? modPkg.GetAsset(items[1], items[2], Il2CppInterop.Runtime.Il2CppType.Of<GameObject>()) : null,
-                _ => null
-            };
-    }
+     }
     internal partial class DevPackage : ModPackage
     {
+        DevPackage(int gameid, string path, string pkgId, Version version) : base(gameid, path, pkgId, version) { }
+
+        static Func<int, string, string, Version, DevPackage> ToPackage =
+            (gameId, root, path, version) => new DevPackage(gameId, path, ToPkgId(root, path), version);
+
+        static Func<int, string, string, IEnumerable<DevPackage>> ToPackages =
+            (gameId, root, path) => ToVersion(Path.GetRelativePath(root, path).Split('-'))
+                .Select(ToPackage.Apply(gameId).Apply(root).Apply(path));
+
+        internal static Func<int, string, IEnumerable<ModPackage>> Collect =
+            (gameId, path) => Plugin.DevelopmentMode.Value
+                ? Directory.GetDirectories(path).SelectMany(ToPackages.Apply(gameId).Apply(path))
+                : Enumerable.Empty<ModPackage>();
+
         internal override void Initialize() =>
-            Initialize(new DevCollector(PkgId, PkgPath));
+            Initialize(new DevCollector(GameId, PkgId, PkgPath));
+
         internal void Initialize(DevCollector collector)
         {
             SoftMigrations = collector.GetSoftMigrations();
@@ -367,6 +423,9 @@ namespace SardineTail
             File.ReadAllBytes(Path.Combine(PkgPath, path));
         internal override string ToString(string path) =>
             File.ReadAllText(Path.Combine(PkgPath, path));
+        internal override string ToAssetBundleIdentity(string path) =>
+            UnityFS.Extract(File.OpenRead(Path.Combine(PkgPath, path)))
+                .SelectMany(fs => fs.Identity).FirstOrDefault(""); 
         internal override AssetBundle ToAssetBundle(string path) =>
             AssetBundle.LoadFromFile(Path.Combine(PkgPath, path));
         static Func<string, string, string> ToPkgId =
@@ -375,8 +434,17 @@ namespace SardineTail
     internal partial class StpPackage : ModPackage
     {
         internal ZipArchive Archive;
+        StpPackage(int gameId, string path, string pkgId, Version version) : base(gameId, path, pkgId, version) { }
+        static Func<int, string, Version, StpPackage> ToPackage =
+            (gameId, path, version) => new StpPackage(gameId, path, ToPkgId(path), version);
+        static Func<int, string, IEnumerable<ModPackage>> ToPackages =
+            (gameId, path) => ToVersion(Path.GetFileNameWithoutExtension(path).Split('-'))
+                .Select(ToPackage.Apply(gameId).Apply(path));
+        internal static Func<int, string, IEnumerable<ModPackage>> Collect =
+            (gameId, path) => new DirectoryInfo(path).GetFiles("*.stp", SearchOption.AllDirectories)
+                .Select(info => info.FullName).SelectMany(ToPackages.Apply(gameId));
         internal override void Initialize() =>
-            Initialize(new StpCollector(PkgId, PkgPath));
+            Initialize(new StpCollector(GameId, PkgId, PkgPath));
         internal void Initialize(StpCollector collector)
         {
             Archive = new ZipArchive(File.OpenRead(PkgPath));
@@ -394,11 +462,15 @@ namespace SardineTail
             ToBytes(Archive.GetEntry(path));
         internal override string ToString(string path) =>
             System.Text.Encoding.UTF8.GetString(ToBytes(path));
+        internal override string ToAssetBundleIdentity(string path) =>
+            ToAssetBundleIdentity(Archive.GetEntry(path));
+        string ToAssetBundleIdentity(ZipArchiveEntry entry) =>
+            entry == null ? "" : UnityFS.Extract(entry.Open())
+                .SelectMany(fs => fs.Identity).FirstOrDefault(""); 
         internal override AssetBundle ToAssetBundle(string path) =>
             ToAssetBundle(Archive.GetEntry(path));
         AssetBundle ToAssetBundle(ZipArchiveEntry entry) =>
-            entry == null ? DefaultBundle : entry.Length == entry.CompressedLength
-                ? LoadAssetBundleFromStream(entry) : LoadAssetBundleFromBytes(entry);
+            entry.Length == entry.CompressedLength ? LoadAssetBundleFromStream(entry) : LoadAssetBundleFromBytes(entry);
         AssetBundle LoadAssetBundleFromStream(ZipArchiveEntry entry) =>
             AssetBundle.LoadFromStream(new EntryWrapper(File.OpenRead(PkgPath), entry.EntryOffset(), entry.Length));
         AssetBundle LoadAssetBundleFromBytes(ZipArchiveEntry entry) =>
@@ -413,13 +485,28 @@ namespace SardineTail
     }
     internal static partial class IOExtension
     {
-        static string GameTag;
-        static int FigureId = -1;
-        internal static void OverrideFigure(Human human) =>
-            (GameTag, FigureId) = (human.data.Tag, Extension<CharaMods, CoordMods>.Humans[human].FigureId);
+        static UnityEngine.Object ToBodyAsset(string bundle, string asset, string manifest, Il2CppSystem.Type type) =>
+            Plugin.AssetBundle.Equals(bundle)
+                ? ModPackage.ToAsset(asset.Split(':'), type)
+                : AssetBundleManager.GetLoadedAssetBundle(bundle, manifest).Bundle.LoadAsset(asset, type);
+
+        static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
+            (info != null) &&
+            info.TryGetValue(ab, out var bundle) &&
+            info.TryGetValue(data, out var asset) &&
+            info.TryGetValue(Ktype.MainManifest, out var manifest)
+                ? ToBodyAsset(bundle, asset, manifest, type)
+                : null;
+        static NormalData ToBodyNormal(ListInfoBase info) =>
+            info != null &&
+            info.TryGetValue(Ktype.MainAB, out var bundle) &&
+            info.TryGetValue(Ktype.MainData, out var asset) &&
+            Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
+
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
             (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
                  BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
+
         static IEnumerable<Renderer> ToOverrideRenderers(HumanBody body, GameObject go) =>
             Enumerable.Range(0, go.transform.childCount)
                 .Select(index => go.transform.GetChild(index).gameObject.GetComponent<Renderer>())
@@ -505,6 +592,7 @@ namespace SardineTail
         static Func<NormalData, NormalData> BustNormalOverrideProc = IOExtension.ToBodyNormal;
         static Func<NormalData, NormalData> BustNormalOverrideSkip = normalData => normalData;
         static Func<NormalData, NormalData> BustNormalOverride = BustNormalOverrideSkip; 
+
         static void BustNormalInitializePrefix(ref NormalData normalData) =>
             (normalData = BustNormalOverride(normalData.With(DisableRedirect))).With(EnableRedirect);
 #if Aicomi
@@ -574,7 +662,6 @@ namespace SardineTail
             Disposable.Create(new Harmony($"Hooks.{Plugin.Name}").With(ApplyPrefixes).With(ApplyPostfixes).UnpatchSelf);
     }
 
-
     [BepInProcess(Process)]
     [BepInDependency(Fishbone.Plugin.Guid)]
     [BepInPlugin(Guid, Name, Version)]
@@ -590,7 +677,7 @@ namespace SardineTail
         static Plugin() =>
             ClassInjector.RegisterTypeInIl2Cpp<EntryWrapper>();
         public override void Load() =>
-            Subscriptions = [Hooks.Initialize(), ..CategoryExtension.Initialize()];
+            Subscriptions = [Hooks.Initialize(), ..CategoryExtension.Initialize(), ..Initialize()];
         public override bool Unload() =>
             true.With(Subscriptions.Dispose) && base.Unload();
     }

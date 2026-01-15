@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reactive;
+using System.Reactive.Linq; 
 using UnityEngine;
 using Character;
 using BepInEx;
@@ -11,6 +11,10 @@ using CoastalSmell;
 
 namespace SardineTail
 {
+    internal abstract partial class ModPackage
+    {
+        internal static readonly int[] IDS = [20];
+    }
     static partial class Hooks
     {
         static void MaterialHelperLoadPatchMaterialPostfix() =>
@@ -50,6 +54,11 @@ namespace SardineTail
                 Config.Bind("General", "Enable development package loading.", false),
                 Config.Bind("General", "Enable hardmod conversion at startup.", false),
                 Config.Bind("General", "Enable aicomi oriented hardmod conversion.", false)
-            ); 
+            );
+        IDisposable[] Initialize() => [
+            SingletonInitializerExtension<Manager.Game>.OnStartup
+                .Where(_ => Config.Bind("General", "Enable hardmod conversion at startup.", false).Value)
+                .FirstAsync().Subscribe(_ => CategoryExtension.Convert())
+        ];
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reactive.Linq;
 using UnityEngine;
 using Character;
 using BepInEx;
@@ -11,6 +12,11 @@ using CoastalSmell;
 
 namespace SardineTail
 {
+    internal abstract partial class ModPackage
+    {
+        internal static readonly int[] IDS = [30];
+    }
+
     static partial class Hooks
     {
         static void MaterialHelperLoadPatchMaterialPostfix() =>
@@ -37,8 +43,26 @@ namespace SardineTail
         internal const string AssetPath = "lib";
         internal const string MainManifest = "lib000_03";
     }
-    internal static partial class IOExtension
+
+    public partial class Plugin : BasePlugin
     {
+        public const string Process = "Aicomi";
+        internal static ConfigEntry<bool> HardmodConversion;
+        public Plugin() : base() =>
+            (Instance, DevelopmentMode, HardmodConversion) = (
+                this,
+                Config.Bind("General", "Enable development package loading.", false),
+                Config.Bind("General", "Enable hardmod conversion at startup.", false)
+            );
+
+        IDisposable[] Initialize() => [ModPackage.OnPrefabLoad.Where(_ => Config.Bind("General", "Enable runtime shader translation.", false).Value).Subscribe(TranslateShader)];
+
+        static void TranslateShader(GameObject go) =>
+            go.GetComponentsInChildren<Renderer>(true)
+                .Select(renderer => renderer.material).ForEach(TranslateShader);
+
+        static void TranslateShader(Material material) => Translate(material, material.shader.name);
+
         static void Translate(Material material, string original) =>
             (material.shader = original switch
             {
@@ -83,39 +107,5 @@ namespace SardineTail
                 _ => material.shader
             }).With(name => Plugin.Instance.Log.LogDebug($"shader translation: {original} => {material.shader.name}"));
 
-        static void TranslateShader(Material material) => Translate(material, material.shader.name);
-
-        static void TranslateShader(GameObject go) =>
-            go.GetComponentsInChildren<Renderer>(true)
-                .Select(renderer => renderer.material).ForEach(TranslateShader);
-
-        internal static void TranslateShader(UnityEngine.Object prefab) =>
-            TranslateShader(new GameObject(prefab.Pointer));
-
-        internal static UnityEngine.Object TranslateShaderProc(UnityEngine.Object prefab) => prefab.With(TranslateShader);
-
-        internal static UnityEngine.Object TranslateShaderSkip(UnityEngine.Object prefab) => prefab;
-
-        internal static Func<UnityEngine.Object, UnityEngine.Object> PreprocessPrefab = TranslateShaderSkip;
-
-    }
-    public partial class Plugin : BasePlugin
-    {
-        public const string Process = "Aicomi";
-        internal static ConfigEntry<bool> HardmodConversion;
-        internal static ConfigEntry<bool> ShaderTranslation;
-        public Plugin() : base() =>
-            (Instance, DevelopmentMode, HardmodConversion, ShaderTranslation) = (
-                this,
-                Config.Bind("General", "Enable development package loading.", false),
-                Config.Bind("General", "Enable hardmod conversion at startup.", false),
-                Config.Bind("General", "Enable runtime shader translation (requires restart).", false)
-            ); 
-
-        void GameSpecificInitialize()
-        {
-            IOExtension.PreprocessPrefab = ShaderTranslation.Value ?
-                IOExtension.TranslateShaderProc : IOExtension.TranslateShaderSkip;
-        }
     }
 }
