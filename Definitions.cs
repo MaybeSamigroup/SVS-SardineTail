@@ -48,9 +48,11 @@ namespace SardineTail
                 );
 
 #if DigitalCraft
-        internal static Dictionary<CatNo, Category> All { get; set; }
-        
-        internal static Action<string> PrepareAll = manifest => All = Definitions(manifest.Split('_', 2)[^1]);
+        internal static Dictionary<int, Dictionary<CatNo, Category>> All =>
+            ModPackage.IDS.ToDictionary(gameId => gameId, gameId => gameId switch {
+                30 or 40 => Definitions("lib000_03"),
+                _ => Definitions("abdata")
+            });
 #else
         internal static readonly Dictionary<CatNo, Category> All = Definitions(MainManifest);
 #endif

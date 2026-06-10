@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reactive.Linq; 
@@ -40,6 +41,14 @@ namespace SardineTail
     {
         internal const string AssetPath = "abdata";
         internal const string MainManifest = "abdata";
+    }
+    internal static partial class IOExtension
+    {
+        internal static void OverrideColors(HumanBody body) =>
+            ToOverrideRenderers(body).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body.fileBody));
+        internal static void OverrideGraphic(HumanBody body) =>
+            body._graphicDisposables.Add(body.graphic.AddEvent(
+                ToOverrideRenderers(body).ToArray(), HumanGraphic.UpdateFlags.All)); 
     }
 
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]

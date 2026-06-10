@@ -44,6 +44,15 @@ namespace SardineTail
         internal const string MainManifest = "lib000_03";
     }
 
+    internal static partial class IOExtension
+    {
+        internal static void OverrideColors(HumanBody body) =>
+            ToOverrideRenderers(body).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body._fileBody));
+        internal static void OverrideGraphic(HumanBody body) =>
+            body._graphicDisposables.Add(body._graphic.AddEvent(
+                ToOverrideRenderers(body).ToArray(), HumanGraphic.UpdateFlags.All)); 
+    }
+
     public partial class Plugin : BasePlugin
     {
         public const string Process = "Aicomi";
@@ -105,7 +114,7 @@ namespace SardineTail
                 "LIF/lif_sub_mnpb_urp" => Shader.Find("AC/sub/mnpb"),
                 "LIF/lif_unlit2d" => Shader.Find("AC/sub/unlit2d"),
                 _ => material.shader
-            }).With(name => Plugin.Instance.Log.LogDebug($"shader translation: {original} => {material.shader.name}"));
+            }).With(name => Instance.Log.LogDebug($"shader translation: {original} => {material.shader.name}"));
 
     }
 }

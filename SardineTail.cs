@@ -68,12 +68,18 @@ namespace SardineTail
         internal IEnumerable<ModLeaf<T>> Csvs;
         internal CategoryCollector(int gameId, string pkgId, T container) =>
             ((GameId, PkgId, Container) = (gameId, pkgId, container)).With(Initialize);
+
+#if DigitalCraft
+        Dictionary<CatNo, Category> Definitions => CategoryExtension.All[GameId];
+#else
+        Dictionary<CatNo, Category> Definitions => CategoryExtension.All;
+#endif
         void Initialize() =>
             (Nodes, Csvs) = Contents()
                 .GroupBy(paths => paths[0]).Aggregate<IGrouping<string, string[]>, (IEnumerable<ModNode<T>>, IEnumerable<ModLeaf<T>>)>(([], []),
                     (tuple, group) => Enum.TryParse<CatNo>(group.Key, true, out var index) ?
-                        new(tuple.Item1.Append(new ModNode<T>(this, CategoryExtension.All[index], group.Key, group)), tuple.Item2) :
-                        new(tuple.Item1, tuple.Item2.Concat(CategoryExtension.All.Values
+                        new(tuple.Item1.Append(new ModNode<T>(this, Definitions[index], group.Key, group)), tuple.Item2) :
+                        new(tuple.Item1, tuple.Item2.Concat(Definitions.Values
                             .Where(elm => $"{elm.Index}.csv".Equals(group.Key, StringComparison.OrdinalIgnoreCase))
                             .SelectMany(elm => group.Select(paths => new ModLeaf<T>(this, elm, paths))))));
         internal IEnumerable<IGrouping<Category, IEnumerable<Resolution>>> Resolve() =>
@@ -318,7 +324,7 @@ namespace SardineTail
             items.Length switch
             {
                 3 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
-                    ? pkg.GetTexture(Path.ChangeExtension(items[1], ".png")) : null,
+                    ? pkg.GetTexture(Path.ChangeExtension(items[2], ".png")) : null,
 
                 4 => int.TryParse(items[0], out var gameId) && Packages[gameId].TryGetValue(items[1], out var pkg)
                     ? pkg.GetAsset(items[2], items[3], Il2CppInterop.Runtime.Il2CppType.Of<Texture2D>()) : null,
@@ -485,11 +491,6 @@ namespace SardineTail
     }
     internal static partial class IOExtension
     {
-        static UnityEngine.Object ToBodyAsset(string bundle, string asset, string manifest, Il2CppSystem.Type type) =>
-            Plugin.AssetBundle.Equals(bundle)
-                ? ModPackage.ToAsset(asset.Split(':'), type)
-                : AssetBundleManager.GetLoadedAssetBundle(bundle, manifest).Bundle.LoadAsset(asset, type);
-
         static UnityEngine.Object ToBodyAsset(ListInfoBase info, Ktype ab, Ktype data, Il2CppSystem.Type type) =>
             (info != null) &&
             info.TryGetValue(ab, out var bundle) &&
@@ -502,27 +503,16 @@ namespace SardineTail
             info.TryGetValue(Ktype.MainAB, out var bundle) &&
             info.TryGetValue(Ktype.MainData, out var asset) &&
             Plugin.AssetBundle.Equals(bundle) ? ModPackage.ToNormalData(asset.Split(':')) : null;
-
         internal static long EntryOffset(this ZipArchiveEntry entry) =>
             (long)typeof(ZipArchiveEntry).GetProperty("OffsetOfCompressedData",
                  BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).GetValue(entry);
-
-        static IEnumerable<Renderer> ToOverrideRenderers(HumanBody body, GameObject go) =>
+        internal static IEnumerable<Renderer> ToOverrideRenderers(HumanBody body) =>
+            ToOverrideRenderers(body.GetRefObject(Table.RefObjKey.S_Son))
+                .Where(renderer => body.rendBody.material.shader.name.Equals(renderer?.material?.shader?.name));
+        static IEnumerable<Renderer> ToOverrideRenderers(GameObject go) =>
             Enumerable.Range(0, go.transform.childCount)
-                .Select(index => go.transform.GetChild(index).gameObject.GetComponent<Renderer>())
-                .Where(renderer => renderer != null & body.rendBody.material.shader.name.Equals(renderer?.material?.shader?.name));
-        internal static void OverrideGraphic(HumanBody body, GameObject go) =>
-#if Aicomi
-            body._graphicDisposables.Add(body._graphic.AddEvent(ToOverrideRenderers(body, go).ToArray(), HumanGraphic.UpdateFlags.All)); 
-#else
-            body._graphicDisposables.Add(body.graphic.AddEvent(ToOverrideRenderers(body, go).ToArray(), HumanGraphic.UpdateFlags.All));
-#endif
-        internal static void OverrideColors(HumanBody body, GameObject go) =>
-#if Aicomi
-            ToOverrideRenderers(body, go).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body._fileBody));
-#else
-            ToOverrideRenderers(body, go).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body.fileBody));
-#endif
+                .Select(go.transform.GetChild).Where(tf => tf.name is "o_dan_f" or "o_dankon")
+                .Select(tf => tf.gameObject.GetComponent<Renderer>()).Where(renderer => renderer != null);
         static Action<HumanDataBody, Material> ApplyColors =
             new Action<HumanDataBody, Material>[]
             {
@@ -578,11 +568,8 @@ namespace SardineTail
         const string BodyPrefabF = "p_cf_sv_body_00";
         const string BodyTextureAB = "chara/body/bo_body_000_00.unity3d";
         const string BodyTexture = "cf_body_00_t";
-#if Aicomi
-        const string BodyShapeAnimeAB = "chara/list/customshape.unity3d";
-#else
+        const string AicomiBodyShapeAnimeAB = "chara/list/customshape.unity3d";
         const string BodyShapeAnimeAB = "list/customshape.unity3d";
-#endif
         const string BodyShapeAnime = "cf_anmShapeBody";
         static bool PreventRedirect = false;
         static void EnableRedirect() =>
@@ -591,7 +578,7 @@ namespace SardineTail
             PreventRedirect = true;
         static Func<NormalData, NormalData> BustNormalOverrideProc = IOExtension.ToBodyNormal;
         static Func<NormalData, NormalData> BustNormalOverrideSkip = normalData => normalData;
-        static Func<NormalData, NormalData> BustNormalOverride = BustNormalOverrideSkip; 
+        static Func<NormalData, NormalData> BustNormalOverride = BustNormalOverrideSkip;
 
         static void BustNormalInitializePrefix(ref NormalData normalData) =>
             (normalData = BustNormalOverride(normalData.With(DisableRedirect))).With(EnableRedirect);
@@ -603,11 +590,9 @@ namespace SardineTail
             BustNormalOverride = BustNormalOverrideProc.With(F.Apply(IOExtension.OverrideFigure, __instance.human));
 #endif
         static void HumanBodyLoadPostfix(HumanBody __instance) =>
-            BustNormalOverride = BustNormalOverrideSkip.With(
-                F.Apply(IOExtension.OverrideGraphic, __instance, __instance.GetRefObject(Table.RefObjKey.S_Son)));
-
+            BustNormalOverride = BustNormalOverrideSkip.With(F.Apply(IOExtension.OverrideGraphic, __instance));
         static void HumanBodyCreateBodyTexturePostfix(HumanBody __instance) =>
-            IOExtension.OverrideColors(__instance, __instance.GetRefObject(Table.RefObjKey.S_Son));
+            IOExtension.OverrideColors(__instance);
 
         static void LoadAssetPostfix(AssetBundle __instance, string name, Il2CppSystem.Type type, ref UnityEngine.Object __result) =>
             __result = PreventRedirect ? __result : ((__instance.name, name).With(DisableRedirect) switch
@@ -617,6 +602,7 @@ namespace SardineTail
                 (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab(BodyPrefabF) ?? __result,
                 (BodyTextureAB, BodyTexture) => IOExtension.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
+                (AicomiBodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
                 _ => null
             } ?? __result).With(EnableRedirect);
 
@@ -628,6 +614,7 @@ namespace SardineTail
                 (BodyPrefabAB, BodyPrefabF) => IOExtension.ToBodyPrefab(BodyPrefabF) ?? __result,
                 (BodyTextureAB, BodyTexture) => IOExtension.ToBodyTexture() ?? __result,
                 (BodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
+                (AicomiBodyShapeAnimeAB, BodyShapeAnime) => IOExtension.ToBodyShapeAnime() ?? __result,
                 _ => null
             } ?? __result).With(EnableRedirect);
 

@@ -106,6 +106,10 @@ namespace SardineTail
         internal static void InitializeFigureId() => FigureId = -1;
         internal static void OverrideFigure(Human human) =>
             FigureId = Extension<CharaMods, CoordMods>.Humans[human].FigureId(human);
+        static UnityEngine.Object ToBodyAsset(string bundle, string asset, string manifest, Il2CppSystem.Type type) =>
+            Plugin.AssetBundle.Equals(bundle)
+                ? ModPackage.ToAsset(asset.Split(':'), type)
+                : AssetBundleManager.GetLoadedAssetBundle(bundle, manifest).Bundle.LoadAsset(asset, type);
         internal static UnityEngine.Object ToBodyPrefab(string name) =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),

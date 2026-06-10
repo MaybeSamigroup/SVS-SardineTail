@@ -17,7 +17,7 @@ namespace SardineTail
 {
     internal abstract partial class ModPackage
     {
-        internal static readonly int[] IDS = [0, 10, 20, 30];
+        internal static readonly int[] IDS = [0, 1, 10, 20, 30];
         internal void Register(Category category, string modId, ListInfoBase info) =>
             (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[GameId][category.Index].TryAdd(info.Id, info))
             .Either(
@@ -36,9 +36,7 @@ namespace SardineTail
     {
         internal static void InitializeManifest(this int gameId, string path, string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles =
-                ExtendManifest(manifest)
-                    .With(CategoryExtension.PrepareAll.Apply(manifest))
-                    .With(F.Apply(ModPackage.InitializePackages, gameId, path));
+                ExtendManifest(manifest).With(F.Apply(ModPackage.InitializePackages, gameId, path));
 
         static string[] ExtendManifest(string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles.Concat([Plugin.AssetBundle]).ToArray();
@@ -47,13 +45,12 @@ namespace SardineTail
         static string GameTag;
         internal static void OverrideFigure(Human human) =>
             (GameTag, FigureId) = (human.data.Tag, Extension<CharaMods, CoordMods>.Humans[human].FigureId(human));
- 
-        internal static LoadedAssetBundle ToAssetBundle(string bundle)
-        {
-            DigitalCraft.PathManager.Instance
-                .GetManifestAndGamePath(ref GameTag, ref bundle, out var manifest, out var path);
-            return AssetBundleManager.LoadAssetBundle(ref path, bundle, manifest);
-        }
+
+        static UnityEngine.Object ToBodyAsset(string bundle, string asset, string _, Il2CppSystem.Type type) =>
+            Plugin.AssetBundle.Equals(bundle)
+                ? ModPackage.ToAsset(asset.Split(':'), type)
+                : AssetBundleManager.GetLoadedAssetBundle(bundle,
+                    DigitalCraft.PathManager.Instance.GetMainManifestFromTag(ref GameTag)).Bundle.LoadAsset(asset, type);
 
         internal static UnityEngine.Object ToBodyPrefab(string name) =>
             (FigureId < ModInfo.MIN_ID) ? null :
@@ -74,6 +71,21 @@ namespace SardineTail
         internal static NormalData ToBodyNormal(NormalData original) =>
             (FigureId < ModInfo.MIN_ID) ? original :
             ToBodyNormal(Human.lstCtrl.GetListInfo(ref GameTag, CatNo.bo_body, FigureId)) ?? original;
+
+        static Dictionary<Renderer, Material> MaterialBuffer = new();
+        static void StoreMaterial(Renderer rend) =>
+            MaterialBuffer[rend] = UnityEngine.Object.Instantiate(rend.material);
+        static Action<Renderer> ApplyColorsToRenderer(HumanBody body) =>
+            rend => ApplyColors.Apply(body.fileBody).Apply(rend.material);
+        static Action<Renderer> OverrideColorsActions(HumanBody body) =>
+            body.human.data.IsAC ? ApplyColorsToRenderer(body) + StoreMaterial : ApplyColorsToRenderer(body);
+        static IEnumerable<Renderer> RenderersToOverrideGraphic(HumanBody body) =>
+            body.human.data.IsAC ? ToOverrideRenderers(body.GetRefObject(Table.RefObjKey.S_Son))
+                .Where(rend => MaterialBuffer.Remove(rend, out var material) && true.With(() => rend.material = material)) : ToOverrideRenderers(body); 
+        internal static void OverrideColors(HumanBody body) =>
+            ToOverrideRenderers(body).ForEach(OverrideColorsActions(body));
+        internal static void OverrideGraphic(HumanBody body) =>
+            body._graphicDisposables.Add(body.graphic.AddEvent(RenderersToOverrideGraphic(body).ToArray(), HumanGraphic.UpdateFlags.All));
     }
 
     static partial class Hooks
