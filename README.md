@@ -20,14 +20,14 @@ Binary releases contain required [K4os.Compression.LZ4](https://github.com/Milos
 
 ### Aicomi
 
-Confirmed working under Aicomi 1.0.7.
+Confirmed working under Aicomi(with Night Tour) 2.0.3.
 
 - [AC-HF_Patch](https://github.com/ManlyMarco/AC-HF_Patch)
   - Message Center
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 4.0.0/2.0.0 or later
+  - 4.1.0/2.1.0 or later
 
 ### SamabakeScramble
 
@@ -38,16 +38,16 @@ Confirmed working under SamabakeScramble 1.1.6
   - BepInEx.ConfigurationManager
   - SVS_BepisPlugins
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 4.0.0/2.0.0 or later
+  - 4.1.0/2.1.0 or later
 
 ### DigitalCraft Standalone
 
-Confirmed working under DigitalCraft 3.0.0.
+Confirmed working under DigitalCraft 3.1.1.
 
 - [BepInEx](https://github.com/BepInEx/BepInEx)
   - [Bleeding Edge (BE) build](https://builds.bepinex.dev/projects/bepinex_be) #752 or later
 - [Fishbone/CoastalSmell](https://github.com/MaybeSamigroup/SVS-Fishbone)
-  - 4.0.0/2.0.0 or later
+  - 4.1.0/2.1.0 or later
 
 ## Installation
 
