@@ -48,16 +48,16 @@ namespace SardineTail
         void ArchiveBundles(ZipArchive archive) =>
             Bundles.ForEach(bundle => ArchiveBundle(archive, bundle));
         void ArchiveBundle(ZipArchive archive, string bundle) =>
-            archive.CreateEntryFromFile(CategoryExtension.ToBundlePath(bundle), bundle, CompressionLevel.NoCompression);
+            archive.CreateEntryFromFile(ModificationExtension.ToBundlePath(bundle), bundle, CompressionLevel.NoCompression);
         void ArchiveEntries(ZipArchive archive) =>
             ArchiveHardMigration(Entries.GroupBy(entry => entry.Category)
                 .ToDictionary(group => group.Key, group => ArchiveEntries(group).Apply(archive)
                     .Try(Plugin.Instance.Log.LogError, out var hardmig) ? hardmig : new()))
                     .ApplyDisposable(archive.CreateEntry("hardmig.json").Open()).Try(Plugin.Instance.Log.LogError);
         Action<Stream> ArchiveHardMigration(Dictionary<CatNo, Dictionary<string, HardMigrationInfo>> hardmigs) =>
-            stream => JsonSerializer.Serialize(stream, hardmigs, CategoryExtension.JsonOption);
+            stream => JsonSerializer.Serialize(stream, hardmigs, ModificationExtension.JsonOption);
         Func<ZipArchive, Dictionary<string, HardMigrationInfo>> ArchiveEntries(IGrouping<CatNo, ConvertEntry> group) =>
-            archive => group.With(ProcessEntries(ToEntryWriter(CategoryExtension.All[group.Key].Entries, archive)))
+            archive => group.With(ProcessEntries(ToEntryWriter(Plugin.GAME_ID.ToSpec(group.Key).Entries, archive)))
                 .Select(entry => new Tuple<string, HardMigrationInfo>(entry.Id.ToString(),
                     new() { ModId = $"{group.Key}/{entry.Name}", Version = new(0, 0, 0) })).ToDictionary();
         Action<ConvertEntry> ToEntryWriter(Entry[] entries, ZipArchive archive) =>
@@ -70,7 +70,7 @@ namespace SardineTail
                 .ApplyDisposable(archive.CreateEntry($"{mod.Category}/{mod.Name}/values.json").Open())
                 .Try(Plugin.Instance.Log.LogError);
         Action<Stream> ArchiveValues(Dictionary<Ktype, string> values) =>
-            stream => JsonSerializer.Serialize(stream, values, CategoryExtension.JsonOption);
+            stream => JsonSerializer.Serialize(stream, values, ModificationExtension.JsonOption);
         Action<IEnumerable<ConvertEntry>> ProcessEntryNames =>
             entries => entries.ForEach(entry => entry.Name = ConvertEntryName(entry.Name));
         Func<string, string> ConvertEntryName =
@@ -99,14 +99,14 @@ namespace SardineTail
         string ToPluralPath(string name) =>
             Enumerable.Range(0, 100).Select(index => index == 0 ? "" : $"({index})")
                 .Select(suffix => Path.Combine(Plugin.ConvertPath, $"{name}{suffix}-0.0.0.stp"))
-                .Where(path => !Directory.Exists(path)).First();
+                .First(path => !Directory.Exists(path));
     }
-    internal static partial class CategoryExtension
+    internal static partial class ModificationExtension
     {
         internal static readonly JsonSerializerOptions JsonOption = new JsonSerializerOptions()
         { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
         internal static string ToBundlePath(string bundle) =>
-            Path.Combine([Paths.GameRootPath, AssetPath, .. bundle.Split(Path.AltDirectorySeparatorChar)]);
+            Path.Combine([Paths.GameRootPath, Plugin.GAME_ID.ToAssetPath(), .. bundle.Split(Path.AltDirectorySeparatorChar)]);
         internal static void Convert()
         {
             new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
@@ -114,12 +114,12 @@ namespace SardineTail
                 .ForEach(path => Directory.Delete(path, true));
             new string[] { Plugin.ConvertPath, Plugin.InvalidPath }
                 .ForEach(path => Directory.CreateDirectory(path));
-            ProcessManifest(All.Values.SelectMany(Convert));
+            ProcessManifest(Plugin.GAME_ID.ToSpecs().SelectMany(Convert));
             Plugin.HardmodConversion.Value = false;
         }
-        static IEnumerable<ConvertEntry> Convert(Category category) =>
+        static IEnumerable<ConvertEntry> Convert(CategorySpec category) =>
             Human.lstCtrl._table[category.Index].Yield()
-                .Where(tuple => ModPackage.FromId(category.Index, tuple.Item1) is null)
+                .Where(tuple => Packages.TryGetValue(Plugin.GAME_ID, category.Index, tuple.Item1, out var _))
                 .Select(tuple => Convert(category, tuple.Item1, tuple.Item2,
                     category.Entries
                         .Where(entry => entry.Value == Vtype.Store)
@@ -128,12 +128,12 @@ namespace SardineTail
                         .Where(value => !ListInfoBase.IsNoneOrEmpty(value)).Distinct()
                         .GroupBy(AbdataExists)));
 
-        static ConvertEntry Convert(Category category, int id, ListInfoBase info, IEnumerable<IGrouping<bool, string>> groups) => new()
+        static ConvertEntry Convert(CategorySpec category, int id, ListInfoBase info, IEnumerable<IGrouping<bool, string>> groups) => new()
         {
             Id = id,
             Name = info.Name,
             Category = category.Index,
-            Manifest = info.TryGetValue(Ktype.MainManifest, out var value) ? value : MainManifest,
+            Manifest = info.TryGetValue(Ktype.MainManifest, out var value) ? value : Plugin.GAME_ID.ToMainManifest(),
             Values = category.Entries
                 .Where(entry => Vtype.Name != entry.Value)
                 .Where(entry => info.ContainsKey(entry.Index))
@@ -158,22 +158,20 @@ namespace SardineTail
                 bundle => bundle,
                 bundle => manifestToBundles
                     .Where(entry => entry.Value.Contains(bundle))
-                    .Select(entry => entry.Key).FirstOrDefault(MainManifest));
+                    .Select(entry => entry.Key).FirstOrDefault(Plugin.GAME_ID.ToMainManifest()));
         static Func<ConvertEntry, ConvertEntry> PreprocessManifest(Dictionary<string, string> manifestMap) =>
             entry => entry.With(() => entry.Values[Ktype.MainManifest] =
                  entry.ToMainAssetBundle().Where(manifestMap.ContainsKey)
-                    .Select(bundle => manifestMap[bundle]).FirstOrDefault(MainManifest));
+                    .Select(bundle => manifestMap[bundle]).FirstOrDefault(Plugin.GAME_ID.ToMainManifest()));
         static void ProcessManifest(Dictionary<string, string> manifestMap, IEnumerable<ConvertEntry> entries) =>
             entries.Select(PreprocessManifest(manifestMap))
                 .GroupBy(entry => entry.Invalid.Count == 0 && IsConvertible(entry))
                 .ForEach(group => ForkValidAndInvalid(group.Key)(manifestMap, group));
-#if SamabakeScramble
+
         static bool IsConvertible(ConvertEntry mod) =>
-            !Plugin.AicomiConversion.Value || MainManifest
-                .Equals(mod.Values.GetValueOrDefault(Ktype.MainManifest, MainManifest));
-#else
-        static bool IsConvertible(ConvertEntry mod) => true;
-#endif
+            !Plugin.CommonConversion.Value || Plugin.GAME_ID.ToMainManifest()
+                .Equals(mod.Values.GetValueOrDefault(Ktype.MainManifest, Plugin.GAME_ID.ToMainManifest()));
+
         static Action<Dictionary<string, string>, IEnumerable<ConvertEntry>> ForkValidAndInvalid(bool value) => value ? Convert : Invalid;
         static void Invalid(Dictionary<string, string> _, IEnumerable<ConvertEntry> entries) =>
             entries.GroupBy(entry => entry.Category)

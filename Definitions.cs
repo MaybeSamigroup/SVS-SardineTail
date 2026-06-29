@@ -1,15 +1,25 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using UnityEngine;
 using CatNo = ChaListDefine.CategoryNo;
 using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
-    enum Vtype { Name, Store, Asset, Image, Text }
+    public enum GameId
+    {
+        DC = 0,
+        HC1 = 1,
+        HC2 = 10,
+        SVS = 20,
+        AC1 = 30,
+        AC2 = 40
+    }
+    public enum Vtype { Name, Store, Asset, Image, Text }
 
-    struct Entry
+    public struct Entry
     {
         internal Entry(Ktype index, Vtype value) =>
             (Index, Value, Children, Default) = (index, value, Array.Empty<Ktype>(), Array.Empty<string>());
@@ -18,47 +28,115 @@ namespace SardineTail
             (Index, Value, Children, Default) = (index, value, Array.Empty<Ktype>(), new[] { defs });
 
         internal Entry(Ktype index, params Ktype[] children) =>
-            (Index, Value, Children, Default) = (index, Vtype.Store, children, new[] { Plugin.AssetBundle });
+            (Index, Value, Children, Default) = (index, Vtype.Store, children, new[] { ListInfoSpec.AssetBundle });
 
-        internal Ktype Index { get; init; }
-        internal Vtype Value { get; init; }
-        internal Ktype[] Children { get; init; }
-        internal string[] Default { get; init; }
+        public Ktype Index { get; init; }
+        public Vtype Value { get; init; }
+        public Ktype[] Children { get; init; }
+        public string[] Default { get; init; }
     }
 
-    struct Category
+    public struct CategorySpec
     {
-        internal CatNo Index { get; init; }
-        internal Entry[] Entries { get; init; }
-    }
-
-    internal static partial class CategoryExtension
-    {
-        internal static string Normalize(string input) =>
-            string.IsNullOrWhiteSpace(input) ? "0" : input.Trim();
-
-        internal static Dictionary<Entry, IEnumerable<Entry>> ResolutionPairs(this Category category) =>
-            category.Entries
-                .Where(entry => !category.Entries.Any(parent => parent.Children.Contains(entry.Index)))
+        public CatNo Index { get; init; }
+        public Entry[] Entries { get; init; }
+        public Dictionary<Entry, IEnumerable<Entry>> ResolutionPairs => GetResolutionPairs(this);
+        static Dictionary<Entry, IEnumerable<Entry>> GetResolutionPairs(CategorySpec cat) =>
+            cat.Entries
+                .Where(entry => !cat.Entries.Any(parent => parent.Children.Contains(entry.Index)))
                 .ToDictionary(
                     entry => entry,
                     entry => entry.Value == Vtype.Store
-                        ? category.Entries.Where(child => entry.Children.Contains(child.Index))
-                        : Enumerable.Empty<Entry>()
-                );
+                        ? cat.Entries.Where(child => entry.Children.Contains(child.Index))
+                        : Enumerable.Empty<Entry>());
+    }
 
-#if DigitalCraft
-        internal static Dictionary<int, Dictionary<CatNo, Category>> All =>
-            ModPackage.IDS.ToDictionary(gameId => gameId, gameId => gameId switch {
-                30 or 40 => Definitions("lib000_03"),
-                _ => Definitions("abdata")
-            });
-#else
-        internal static readonly Dictionary<CatNo, Category> All = Definitions(MainManifest);
-#endif
-        static Dictionary<CatNo, Category> Definitions(string MainManifest) =>
-            Enum.GetValues<CatNo>()
-                .Select(index => new Category
+    public static class GameIdSpec
+    {
+        public static string ToMainManifest(this GameId id) =>
+           id switch
+           {
+               GameId.AC1 or
+               GameId.AC2 => "ac_lib000_03",
+               _ => "abdata"
+           };
+
+        public static string ToAssetPath(this GameId id) =>
+            id switch
+            {
+                GameId.AC1 or
+                GameId.AC2 => "lib",
+                _ => "abdata"
+            };
+
+        public static string ToTitle(this GameId id) =>
+            id switch
+            {
+                GameId.HC1 or
+                GameId.HC2 => "【HC】",
+                GameId.SVS => "【SV】",
+                GameId.AC1 or
+                GameId.AC2 => "【AC】",
+                _ => "【DC】"
+            };
+
+        public static GameId FromCharaTag(string tag) =>
+            tag switch
+            {
+                "【HCChara】" => GameId.HC1,
+                "【HCPChara】" => GameId.HC2,
+                "【SVChara】" => GameId.SVS,
+                "【ACChara】" => GameId.AC1,
+                "【DCChara】" => GameId.DC,
+                _ => GameId.DC
+            };
+
+        public static GameId FromClothesTag(string tag) =>
+            tag switch
+            {
+                "【HCClothes】" => GameId.HC1,
+                "【HCPClothes】" => GameId.HC2,
+                "【SVClothes】" => GameId.SVS,
+                "【ACClothes】" => GameId.AC1,
+                _ => GameId.DC
+            };
+
+        public static CategorySpec ToSpec(this GameId id, CatNo index) =>
+            ListInfoSpec.All[id.ToMainManifest()][index];
+
+        public static IEnumerable<CategorySpec> ToSpecs(this GameId id) =>
+            ListInfoSpec.All[id.ToMainManifest()].Values;
+    }
+    public static class ListInfoSpec
+    {
+        public static string AssetBundle = "sardinetail.unity3d";
+
+        public static CatNo ToCategoryNo(this ChaFileDefine.HairKind value) => value switch
+        {
+            ChaFileDefine.HairKind.back => CatNo.bo_hair_b,
+            ChaFileDefine.HairKind.front => CatNo.bo_hair_f,
+            ChaFileDefine.HairKind.side => CatNo.bo_hair_s,
+            ChaFileDefine.HairKind.option => CatNo.bo_hair_o,
+            _ => throw new ArgumentException()
+        };
+
+        public static CatNo ToCategoryNo(this ChaFileDefine.ClothesKind value) => value switch
+        {
+            ChaFileDefine.ClothesKind.top => CatNo.co_top,
+            ChaFileDefine.ClothesKind.bot => CatNo.co_bot,
+            ChaFileDefine.ClothesKind.bra => CatNo.co_bra,
+            ChaFileDefine.ClothesKind.shorts => CatNo.co_shorts,
+            ChaFileDefine.ClothesKind.gloves => CatNo.co_gloves,
+            ChaFileDefine.ClothesKind.panst => CatNo.co_panst,
+            ChaFileDefine.ClothesKind.socks => CatNo.co_socks,
+            ChaFileDefine.ClothesKind.shoes => CatNo.co_shoes,
+            _ => throw new ArgumentException()
+        };
+
+        public static ImmutableDictionary<string, ImmutableDictionary<CatNo, CategorySpec>> All =>
+            Enum.GetValues<GameId>().Select(GameIdSpec.ToMainManifest).Distinct()
+                .ToImmutableDictionary(mm => mm, MainManifest => Enum.GetValues<CatNo>()
+                .Select(index => new CategorySpec
                 {
                     Index = index,
                     Entries = index switch
@@ -940,12 +1018,11 @@ namespace SardineTail
                     }
                 })
                 .Where(category => category.Entries.Length > 0)
-                .ToDictionary(category => category.Index, category => category);
+                .ToImmutableDictionary(category => category.Index, category => category));
 
-        internal static void WrapMode(this string[] path, Texture2D t2d)
-        {
+        public static (TextureWrapMode U, TextureWrapMode V, TextureWrapMode W) ToWrapModes(this string[] path) =>
             // Assigns wrap modes based on path patterns and file names
-            (t2d.wrapModeU, t2d.wrapModeV, t2d.wrapModeW) = (path[0], path[^1]) switch
+            (path[0], path[^1]) switch
             {
                 (_, "RepeatRepeatRepeat.png") => (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
                 (_, "RepeatRepeatClamp.png") => (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Clamp),
@@ -1045,6 +1122,5 @@ namespace SardineTail
                 ("mt_pattern", _) => (TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureWrapMode.Repeat),
                 _ => (TextureWrapMode.Clamp, TextureWrapMode.Clamp, TextureWrapMode.Clamp)
             };
-        }
     }
 }

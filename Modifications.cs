@@ -2,24 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Character;
+using Fishbone;
+using CoastalSmell;
 using CatNo = ChaListDefine.CategoryNo;
 using CharaLimit = Character.HumanData.LoadLimited.Flags;
 using CoordLimit = Character.HumanDataCoordinate.LoadLimited.Flags;
-using Fishbone;
-using CoastalSmell;
 
 namespace SardineTail
 {
-    public record ModInfo
-    {
-        public const int MIN_ID = 1000_000_000;
-        public string PkgId { get; init; }
-        public string ModId { get; init; }
-        public CatNo Category { get; init; }
-        public Version PkgVersion { get; init; }
-    }
-
-    public static class ModificationExtension
+    file static partial class ModInfoExtension
     {
         internal static Dictionary<K, V> Defaults<K, V>(this Dictionary<K, V> values) where K : struct, Enum where V : new() =>
             (values?.Count ?? 0) is not 0 ? values : Enum.GetValues<K>().ToDictionary(item => item, item => new V());
@@ -34,50 +25,42 @@ namespace SardineTail
 
         internal static (T, ModInfo)[] ToEntry<T>(this T index, ModInfo mod) => mod == null ? [] : [(index, mod)];
 
-        internal static int GameId(this HumanDataCoordinate data) => data.Tag switch
-        {
-            "【HCClothes】" => 10,
-            "【SVClothes】" => 20,
-            "【ACClothes】" => 30,
-            _ => 0
-        };
-        internal static int GameId(this HumanData data) => data.Tag switch
-        {
-            "【HCChara】" => 10,
-            "【SVChara】" => 20,
-            "【ACChara】" => 30,
-            _ => 0
-        };
+        internal static int ToId(this GameId gameId, CatNo categoryNo, ModInfo mod, int id) =>
+            Packages.TranslateId(gameId, categoryNo, mod, id);
 
+        internal static ModInfo ToMod(this GameId gameId, CatNo categoryNo, int id) =>
+            Packages.TryGetValue(gameId, categoryNo, id, out var mod) ? mod : null;
+
+    }
+
+    public record ModInfo
+    {
+        public const int MIN_ID = 1000_000_000;
+        public string PkgId { get; init; }
+        public string ModId { get; init; }
+        public CatNo Category { get; init; }
+        public Version PkgVersion { get; init; }
     }
 
     public record HairsMods
     {
         public ModInfo HairGloss { get; init; }
         public Dictionary<ChaFileDefine.HairKind, ModInfo> Hairs { get; init; }
-        public void Apply(int gameId, HumanDataHair data)
+        public void Apply(GameId gameId, HumanDataHair data)
         {
-            data.glossId = ModPackage.ToId(gameId, CatNo.mt_hairgloss, HairGloss, data.glossId);
+            data.glossId = gameId.ToId(CatNo.mt_hairgloss, HairGloss, data.glossId);
             Hairs.Defaults().ForEach(entry =>
                 data.parts[(int)entry.Key].id = data.parts[(int)entry.Key].bundleId =
-                    ModPackage.ToId(gameId, ToCategoryNo(entry.Key), entry.Value, data.parts[(int)entry.Key].id)
+                    gameId.ToId(entry.Key.ToCategoryNo(), entry.Value, data.parts[(int)entry.Key].id)
             );
         }
-        public static HairsMods ToMods(HumanDataHair data) => new()
-            {
-                HairGloss = ModPackage.FromId(CatNo.mt_hairgloss, data.glossId),
-                Hairs = Enum.GetValues<ChaFileDefine.HairKind>()
-                    .Where(part => data.parts[(int)part] is not null)
-                    .SelectMany(part => part.ToEntry(ModPackage.FromId(ToCategoryNo(part), data.parts[(int)part].id)))
-                    .ToDictionary()
-            };
-        static CatNo ToCategoryNo(ChaFileDefine.HairKind value) => value switch
+        public static HairsMods Store(GameId gameId, HumanDataHair data) => new()
         {
-            ChaFileDefine.HairKind.back => CatNo.bo_hair_b,
-            ChaFileDefine.HairKind.front => CatNo.bo_hair_f,
-            ChaFileDefine.HairKind.side => CatNo.bo_hair_s,
-            ChaFileDefine.HairKind.option => CatNo.bo_hair_o,
-            _ => throw new ArgumentException()
+            HairGloss = gameId.ToMod(CatNo.mt_hairgloss, data.glossId),
+            Hairs = Enum.GetValues<ChaFileDefine.HairKind>()
+                    .Where(part => data.parts[(int)part] is not null)
+                    .SelectMany(part => part.ToEntry(gameId.ToMod(part.ToCategoryNo(), data.parts[(int)part].id)))
+                    .ToDictionary()
         };
     }
 
@@ -86,40 +69,29 @@ namespace SardineTail
         public ModInfo Part { get; init; }
         public Dictionary<int, ModInfo> Paints { get; init; }
         public Dictionary<int, ModInfo> Patterns { get; init; }
-        internal void Apply(ChaFileDefine.ClothesKind part, int gameId, HumanDataClothes.PartsInfo data)
+        internal void Apply(ChaFileDefine.ClothesKind part, GameId gameId, HumanDataClothes.PartsInfo data)
         {
-            data.id = ModPackage.ToId(gameId, ToCategoryNo(part), Part, data.id);
+            data.id = gameId.ToId(part.ToCategoryNo(), Part, data.id);
             Paints.Defaults(data.paintInfos.Count).ForEach(entry =>
-                data.paintInfos[entry.Key].ID = ModPackage.ToId(gameId, CatNo.mt_body_paint, entry.Value, data.paintInfos[entry.Key].ID));
+                data.paintInfos[entry.Key].ID = gameId.ToId(CatNo.mt_body_paint, entry.Value, data.paintInfos[entry.Key].ID));
             Patterns.Defaults(data.colorInfo.Count).ForEach(entry =>
-                data.colorInfo[entry.Key].patternInfo.pattern = ModPackage.ToId(gameId, CatNo.mt_pattern, entry.Value, data.colorInfo[entry.Key].patternInfo.pattern));
+                data.colorInfo[entry.Key].patternInfo.pattern = gameId.ToId(CatNo.mt_pattern, entry.Value, data.colorInfo[entry.Key].patternInfo.pattern));
         }
 
-        static CatNo ToCategoryNo(ChaFileDefine.ClothesKind value) => value switch
-        {
-            ChaFileDefine.ClothesKind.top => CatNo.co_top,
-            ChaFileDefine.ClothesKind.bot => CatNo.co_bot,
-            ChaFileDefine.ClothesKind.bra => CatNo.co_bra,
-            ChaFileDefine.ClothesKind.shorts => CatNo.co_shorts,
-            ChaFileDefine.ClothesKind.gloves => CatNo.co_gloves,
-            ChaFileDefine.ClothesKind.panst => CatNo.co_panst,
-            ChaFileDefine.ClothesKind.socks => CatNo.co_socks,
-            ChaFileDefine.ClothesKind.shoes => CatNo.co_shoes,
-            _ => throw new ArgumentException()
-        };
-
-        static Tuple<ChaFileDefine.ClothesKind, ClothMods> ToMod(ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data) =>
+        static Tuple<ChaFileDefine.ClothesKind, ClothMods> Store(GameId gameId, ChaFileDefine.ClothesKind part, HumanDataClothes.PartsInfo data) =>
             new(part, new ClothMods
             {
-                Part = ModPackage.FromId(ToCategoryNo(part), data.id),
-                Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_body_paint, data.ID))).ToDictionary(),
-                Patterns = data.colorInfo.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_pattern, data.patternInfo.pattern))).ToDictionary(),
+                Part = gameId.ToMod(part.ToCategoryNo(), data.id),
+                Paints = data.paintInfos.SelectMany((data, index) =>
+                    index.ToEntry(gameId.ToMod(CatNo.mt_body_paint, data.ID))).ToDictionary(),
+                Patterns = data.colorInfo.SelectMany((data, index) =>
+                    index.ToEntry(gameId.ToMod(CatNo.mt_pattern, data.patternInfo.pattern))).ToDictionary(),
             });
 
-        internal static Dictionary<ChaFileDefine.ClothesKind, ClothMods> ToMod(HumanDataClothes data) =>
+        internal static Dictionary<ChaFileDefine.ClothesKind, ClothMods> Store(GameId gameId, HumanDataClothes data) =>
             Enum.GetValues<ChaFileDefine.ClothesKind>()
                 .Where(part => data.parts[(int)part] is not null)
-                .Select(part => ToMod(part, data.parts[(int)part]))
+                .Select(part => Store(gameId, part, data.parts[(int)part]))
                 .ToDictionary();
     }
 
@@ -127,24 +99,25 @@ namespace SardineTail
     {
         public ModInfo Part { get; init; }
         public Dictionary<int, ModInfo> Patterns { get; init; }
-        internal void Apply(int gameId, HumanDataAccessory.PartsInfo data)
+        internal void Apply(GameId gameId, HumanDataAccessory.PartsInfo data)
         {
-            data.id = ModPackage.ToId(gameId, (CatNo)data.type, Part, data.id);
+            data.id = gameId.ToId((CatNo)data.type, Part, data.id);
             Patterns.Defaults(data.colorInfo.Count).ForEach(entry =>
-                data.colorInfo[entry.Key].pattern = ModPackage.ToId(gameId, CatNo.mt_pattern, entry.Value, data.colorInfo[entry.Key].pattern));
+                data.colorInfo[entry.Key].pattern = gameId.ToId(CatNo.mt_pattern, entry.Value, data.colorInfo[entry.Key].pattern));
         }
 
-        static Tuple<int, AccessoryMods> ToMod(int slot, HumanDataAccessory.PartsInfo data) =>
+        static Tuple<int, AccessoryMods> Store(GameId gameId, int slot, HumanDataAccessory.PartsInfo data) =>
             new(slot, new AccessoryMods
             {
-                Part = ModPackage.FromId((CatNo)data.type, data.id),
-                Patterns = data.colorInfo.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_pattern, data.pattern))).ToDictionary(),
+                Part = gameId.ToMod((CatNo)data.type, data.id),
+                Patterns = data.colorInfo.SelectMany((data, index) =>
+                    index.ToEntry(gameId.ToMod(CatNo.mt_pattern, data.pattern))).ToDictionary(),
             });
 
-        internal static Dictionary<int, AccessoryMods> ToMod(HumanDataAccessory data) =>
+        internal static Dictionary<int, AccessoryMods> Store(GameId gameId, HumanDataAccessory data) =>
             Enumerable.Range(0, data.parts.Count)
                 .Where(slot => data.parts[slot] is not null)
-                .Select(slot => ToMod(slot, data.parts[slot]))
+                .Select(slot => Store(gameId, slot, data.parts[slot]))
                 .ToDictionary();
     }
 
@@ -156,24 +129,26 @@ namespace SardineTail
         public Dictionary<int, ModInfo> Paints { get; init; }
         public Dictionary<int, ModInfo> Layouts { get; init; }
 
-        internal void Apply(int gameId, HumanDataFaceMakeup data)
+        internal void Apply(GameId gameId, HumanDataFaceMakeup data)
         {
-            data.eyeshadowId = ModPackage.ToId(gameId, CatNo.mt_eyeshadow, Eyeshadow, data.eyeshadowId);
-            data.cheekId = ModPackage.ToId(gameId, CatNo.mt_cheek, Cheek, data.cheekId);
-            data.lipId = ModPackage.ToId(gameId, CatNo.mt_lip, Lip, data.lipId);
+            data.eyeshadowId = gameId.ToId(CatNo.mt_eyeshadow, Eyeshadow, data.eyeshadowId);
+            data.cheekId = gameId.ToId(CatNo.mt_cheek, Cheek, data.cheekId);
+            data.lipId = gameId.ToId(CatNo.mt_lip, Lip, data.lipId);
             Paints.Defaults(data.paintInfos.Count).ForEach(entry =>
-                data.paintInfos[entry.Key].ID = ModPackage.ToId(gameId, CatNo.mt_face_paint, entry.Value, data.paintInfos[entry.Key].ID));
+                data.paintInfos[entry.Key].ID = gameId.ToId(CatNo.mt_face_paint, entry.Value, data.paintInfos[entry.Key].ID));
             Layouts.Defaults(data.paintInfos.Count).ForEach(entry =>
-                data.paintInfos[entry.Key].layoutID = ModPackage.ToId(gameId, CatNo.facepaint_layout, entry.Value, data.paintInfos[entry.Key].layoutID));
+                data.paintInfos[entry.Key].layoutID = gameId.ToId(CatNo.facepaint_layout, entry.Value, data.paintInfos[entry.Key].layoutID));
         }
 
-        internal static FaceMakeupMods ToMod(HumanDataFaceMakeup data) => new()
+        internal static FaceMakeupMods Store(GameId gameId, HumanDataFaceMakeup data) => new()
         {
-            Eyeshadow = ModPackage.FromId(CatNo.mt_eyeshadow, data.eyeshadowId),
-            Cheek = ModPackage.FromId(CatNo.mt_cheek, data.cheekId),
-            Lip = ModPackage.FromId(CatNo.mt_lip, data.lipId),
-            Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_face_paint, data.ID))).ToDictionary(),
-            Layouts = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.facepaint_layout, data.layoutID))).ToDictionary(),
+            Eyeshadow = gameId.ToMod(CatNo.mt_eyeshadow, data.eyeshadowId),
+            Cheek = gameId.ToMod(CatNo.mt_cheek, data.cheekId),
+            Lip = gameId.ToMod(CatNo.mt_lip, data.lipId),
+            Paints = data.paintInfos.SelectMany((data, index) =>
+                index.ToEntry(gameId.ToMod(CatNo.mt_face_paint, data.ID))).ToDictionary(),
+            Layouts = data.paintInfos.SelectMany((data, index) =>
+                index.ToEntry(gameId.ToMod(CatNo.facepaint_layout, data.layoutID))).ToDictionary(),
         };
     }
 
@@ -183,23 +158,24 @@ namespace SardineTail
         public ModInfo NailLeg { get; init; }
         public Dictionary<int, ModInfo> Paints { get; init; }
         public Dictionary<int, ModInfo> Layouts { get; init; }
-
-        internal void Apply(int gameId, HumanDataBodyMakeup data)
+        internal void Apply(GameId gameId, HumanDataBodyMakeup data)
         {
-            data.nailInfo.ID = ModPackage.ToId(gameId, CatNo.bo_nail, Nail, data.nailInfo.ID);
-            data.nailLegInfo.ID = ModPackage.ToId(gameId, CatNo.bo_nail, NailLeg, data.nailLegInfo.ID);
+            data.nailInfo.ID = gameId.ToId(CatNo.bo_nail, Nail, data.nailInfo.ID);
+            data.nailLegInfo.ID = gameId.ToId(CatNo.bo_nail, NailLeg, data.nailLegInfo.ID);
             Paints.Defaults(data.paintInfos.Count).ForEach(entry =>
-                data.paintInfos[entry.Key].ID = ModPackage.ToId(gameId, CatNo.mt_body_paint, entry.Value, data.paintInfos[entry.Key].ID));
+                data.paintInfos[entry.Key].ID = gameId.ToId(CatNo.mt_body_paint, entry.Value, data.paintInfos[entry.Key].ID));
             Layouts.Defaults(data.paintInfos.Count).ForEach(entry =>
-                data.paintInfos[entry.Key].layoutID = ModPackage.ToId(gameId, CatNo.bodypaint_layout, entry.Value, data.paintInfos[entry.Key].layoutID));
+                data.paintInfos[entry.Key].layoutID = gameId.ToId(CatNo.bodypaint_layout, entry.Value, data.paintInfos[entry.Key].layoutID));
         }
 
-        internal static BodyMakeupMods ToMod(HumanDataBodyMakeup data) => new()
+        internal static BodyMakeupMods Store(GameId gameId, HumanDataBodyMakeup data) => new()
         {
-            Nail = ModPackage.FromId(CatNo.bo_nail, data.nailInfo.ID),
-            NailLeg = ModPackage.FromId(CatNo.bo_nail_leg, data.nailLegInfo.ID),
-            Paints = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_body_paint, data.ID))).ToDictionary(),
-            Layouts = data.paintInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.bodypaint_layout, data.layoutID))).ToDictionary(),
+            Nail = gameId.ToMod(CatNo.bo_nail, data.nailInfo.ID),
+            NailLeg = gameId.ToMod(CatNo.bo_nail_leg, data.nailLegInfo.ID),
+            Paints = data.paintInfos.SelectMany((data, index) =>
+                index.ToEntry(gameId.ToMod(CatNo.mt_body_paint, data.ID))).ToDictionary(),
+            Layouts = data.paintInfos.SelectMany((data, index) =>
+                index.ToEntry(gameId.ToMod(CatNo.bodypaint_layout, data.layoutID))).ToDictionary(),
         };
     }
 
@@ -219,11 +195,11 @@ namespace SardineTail
             Clothes = (limit & CoordLimit.Clothes) is CoordLimit.None ? Clothes : mods.Clothes,
             Hairs = (limit & CoordLimit.Hair) is CoordLimit.None ? Hairs : mods.Hairs,
         };
-        public CoordMods Convert(HumanDataCoordinate data) => ToMods(data);
+        public CoordMods Convert(HumanDataCoordinate data) => Store(data.ToGameId(), data);
 
-        internal void Apply(HumanDataCoordinate data) => Apply(data.GameId(), data);
+        internal void Apply(HumanDataCoordinate data) => Apply(data.ToGameId(), data);
 
-        internal void Apply(int gameId, HumanDataCoordinate data)
+        internal void Apply(GameId gameId, HumanDataCoordinate data)
         {
             BodyMakeup.Defaults().Apply(gameId, data.BodyMakeup);
             FaceMakeup.Defaults().Apply(gameId, data.FaceMakeup);
@@ -237,15 +213,16 @@ namespace SardineTail
         }
 
         internal static void Store(Human human) =>
-            Extension<CharaMods, CoordMods>.Humans.NowCoordinate[human] = ToMods(human.coorde.Now);
+            Extension<CharaMods, CoordMods>.Humans.NowCoordinate[human] =
+                Store(human.coorde.Now.ToGameId(), human.coorde.Now);
 
-        internal static CoordMods ToMods(HumanDataCoordinate data) => new()
+        internal static CoordMods Store(GameId gameId, HumanDataCoordinate data) => new()
         {
-            BodyMakeup = BodyMakeupMods.ToMod(data.BodyMakeup),
-            FaceMakeup = FaceMakeupMods.ToMod(data.FaceMakeup),
-            Hairs = HairsMods.ToMods(data.Hair),
-            Clothes = ClothMods.ToMod(data.Clothes),
-            Accessories = AccessoryMods.ToMod(data.Accessory)
+            BodyMakeup = BodyMakeupMods.Store(gameId, data.BodyMakeup),
+            FaceMakeup = FaceMakeupMods.Store(gameId, data.FaceMakeup),
+            Hairs = HairsMods.Store(gameId, data.Hair),
+            Clothes = ClothMods.Store(gameId, data.Clothes),
+            Accessories = AccessoryMods.Store(gameId, data.Accessory)
         };
     }
 
@@ -256,22 +233,23 @@ namespace SardineTail
         public ModInfo Gradation { get; init; }
         public Dictionary<int, ModInfo> Highlights { get; init; }
 
-        internal void Apply(int gameId, HumanDataFace.PupilInfo data)
+        internal void Apply(GameId gameId, HumanDataFace.PupilInfo data)
         {
-            data.id = ModPackage.ToId(gameId, CatNo.mt_eye, Eye, data.id);
-            data.overId = ModPackage.ToId(gameId, CatNo.mt_eyepipil, Pupil, data.overId);
-            data.gradMaskId = ModPackage.ToId(gameId, CatNo.mt_eye_gradation, Gradation, data.gradMaskId);
+            data.id = gameId.ToId(CatNo.mt_eye, Eye, data.id);
+            data.overId = gameId.ToId(CatNo.mt_eyepipil, Pupil, data.overId);
+            data.gradMaskId = gameId.ToId(CatNo.mt_eye_gradation, Gradation, data.gradMaskId);
             Highlights.Defaults(data.highlightInfos.Count)
                 .ForEach((key, val) => data.highlightInfos[key].id =
-                     ModPackage.ToId(gameId, CatNo.mt_eye_hi_up, val, data.highlightInfos[key].id));
+                    gameId.ToId(CatNo.mt_eye_hi_up, val, data.highlightInfos[key].id));
         }
 
-        internal static EyeMods ToMod(HumanDataFace.PupilInfo data) => new()
+        internal static EyeMods Store(GameId gameId, HumanDataFace.PupilInfo data) => new()
         {
-            Eye = ModPackage.FromId(CatNo.mt_eye, data.id),
-            Pupil = ModPackage.FromId(CatNo.mt_eyepipil, data.overId),
-            Gradation = ModPackage.FromId(CatNo.mt_eye_gradation, data.gradMaskId),
-            Highlights = data.highlightInfos.SelectMany((data, index) => index.ToEntry(ModPackage.FromId(CatNo.mt_eye_hi_up, data.id))).ToDictionary(),
+            Eye = gameId.ToMod(CatNo.mt_eye, data.id),
+            Pupil = gameId.ToMod(CatNo.mt_eyepipil, data.overId),
+            Gradation = gameId.ToMod(CatNo.mt_eye_gradation, data.gradMaskId),
+            Highlights = data.highlightInfos.SelectMany((data, index) =>
+                index.ToEntry(gameId.ToMod(CatNo.mt_eye_hi_up, data.id))).ToDictionary(),
         };
     }
 
@@ -290,36 +268,36 @@ namespace SardineTail
         public ModInfo EyeWhite { get; set; }
         public Dictionary<int, EyeMods> Eyes { get; set; }
 
-        internal void Apply(int gameId, HumanDataFace data)
+        internal void Apply(GameId gameId, HumanDataFace data)
         {
-            data.headId = ModPackage.ToId(gameId, CatNo.bo_head, Head, data.headId);
-            data.detailId = ModPackage.ToId(gameId, CatNo.mt_face_detail, Detail, data.detailId);
-            data.moleInfo.ID = ModPackage.ToId(gameId, CatNo.mt_mole, Mole, data.moleInfo.ID);
-            data.moleInfo.layoutID = ModPackage.ToId(gameId, CatNo.mole_layout, MoleLayout, data.moleInfo.layoutID);
-            data.noseId = ModPackage.ToId(gameId, CatNo.mt_nose, Nose, data.noseId);
-            data.lipLineId = ModPackage.ToId(gameId, CatNo.mt_lipline, LipLine, data.lipLineId);
-            data.eyebrowId = ModPackage.ToId(gameId, CatNo.mt_eyebrow, Eyebrows, data.eyebrowId);
-            data.eyelidId = ModPackage.ToId(gameId, CatNo.mt_eyelid, Eyelid, data.eyelidId);
-            data.eyelineDownId = ModPackage.ToId(gameId, CatNo.mt_eyeline_down, EyelineDown, data.eyelineDownId);
-            data.eyelineUpId = ModPackage.ToId(gameId, CatNo.mt_eyeline_up, EyelineUp, data.eyelineUpId);
-            data.whiteId = ModPackage.ToId(gameId, CatNo.mt_eye_white, EyeWhite, data.whiteId);
+            data.headId = gameId.ToId(CatNo.bo_head, Head, data.headId);
+            data.detailId = gameId.ToId(CatNo.mt_face_detail, Detail, data.detailId);
+            data.moleInfo.ID = gameId.ToId(CatNo.mt_mole, Mole, data.moleInfo.ID);
+            data.moleInfo.layoutID = gameId.ToId(CatNo.mole_layout, MoleLayout, data.moleInfo.layoutID);
+            data.noseId = gameId.ToId(CatNo.mt_nose, Nose, data.noseId);
+            data.lipLineId = gameId.ToId(CatNo.mt_lipline, LipLine, data.lipLineId);
+            data.eyebrowId = gameId.ToId(CatNo.mt_eyebrow, Eyebrows, data.eyebrowId);
+            data.eyelidId = gameId.ToId(CatNo.mt_eyelid, Eyelid, data.eyelidId);
+            data.eyelineDownId = gameId.ToId(CatNo.mt_eyeline_down, EyelineDown, data.eyelineDownId);
+            data.eyelineUpId = gameId.ToId(CatNo.mt_eyeline_up, EyelineUp, data.eyelineUpId);
+            data.whiteId = gameId.ToId(CatNo.mt_eye_white, EyeWhite, data.whiteId);
             Eyes.Defaults(data.pupil.Count).ForEach((index, value) => value.Apply(gameId, data.pupil[index]));
         }
 
-        internal static FaceMods ToMod(HumanDataFace data) => new()
+        internal static FaceMods Store(GameId gameId, HumanDataFace data) => new()
         {
-            Head = ModPackage.FromId(CatNo.bo_head, data.headId),
-            Detail = ModPackage.FromId(CatNo.mt_face_detail, data.detailId),
-            Mole = ModPackage.FromId(CatNo.mt_mole, data.moleInfo.ID),
-            MoleLayout = ModPackage.FromId(CatNo.mole_layout, data.moleInfo.layoutID),
-            Nose = ModPackage.FromId(CatNo.mt_nose, data.noseId),
-            LipLine = ModPackage.FromId(CatNo.mt_lipline, data.lipLineId),
-            Eyebrows = ModPackage.FromId(CatNo.mt_eyebrow, data.eyebrowId),
-            Eyelid = ModPackage.FromId(CatNo.mt_eyelid, data.eyelidId),
-            EyelineDown = ModPackage.FromId(CatNo.mt_eyeline_down, data.eyelineDownId),
-            EyelineUp = ModPackage.FromId(CatNo.mt_eyeline_up, data.eyelineUpId),
-            EyeWhite = ModPackage.FromId(CatNo.mt_eye_white, data.whiteId),
-            Eyes = data.pupil.Select((data, index) => (index, EyeMods.ToMod(data))).ToDictionary()
+            Head = gameId.ToMod(CatNo.bo_head, data.headId),
+            Detail = gameId.ToMod(CatNo.mt_face_detail, data.detailId),
+            Mole = gameId.ToMod(CatNo.mt_mole, data.moleInfo.ID),
+            MoleLayout = gameId.ToMod(CatNo.mole_layout, data.moleInfo.layoutID),
+            Nose = gameId.ToMod(CatNo.mt_nose, data.noseId),
+            LipLine = gameId.ToMod(CatNo.mt_lipline, data.lipLineId),
+            Eyebrows = gameId.ToMod(CatNo.mt_eyebrow, data.eyebrowId),
+            Eyelid = gameId.ToMod(CatNo.mt_eyelid, data.eyelidId),
+            EyelineDown = gameId.ToMod(CatNo.mt_eyeline_down, data.eyelineDownId),
+            EyelineUp = gameId.ToMod(CatNo.mt_eyeline_up, data.eyelineUpId),
+            EyeWhite = gameId.ToMod(CatNo.mt_eye_white, data.whiteId),
+            Eyes = data.pupil.Select((data, index) => (index, EyeMods.Store(gameId, data))).ToDictionary()
         };
     }
 
@@ -330,20 +308,20 @@ namespace SardineTail
         public ModInfo Nip { get; set; }
         public ModInfo Underhair { get; set; }
 
-        internal void Apply(int gameId, HumanDataBody data)
+        internal void Apply(GameId gameId, HumanDataBody data)
         {
-            data.detailId = ModPackage.ToId(gameId, CatNo.mt_body_detail, Detail, data.detailId);
-            data.sunburnId = ModPackage.ToId(gameId, CatNo.mt_sunburn, Sunburn, data.sunburnId);
-            data.nipId = ModPackage.ToId(gameId, CatNo.mt_nip, Nip, data.nipId);
-            data.underhairId = ModPackage.ToId(gameId, CatNo.mt_underhair, Underhair, data.underhairId);
+            data.detailId = gameId.ToId(CatNo.mt_body_detail, Detail, data.detailId);
+            data.sunburnId = gameId.ToId(CatNo.mt_sunburn, Sunburn, data.sunburnId);
+            data.nipId = gameId.ToId(CatNo.mt_nip, Nip, data.nipId);
+            data.underhairId = gameId.ToId(CatNo.mt_underhair, Underhair, data.underhairId);
         }
 
-        internal static BodyMods ToMod(HumanDataBody data) => new()
+        internal static BodyMods Store(GameId gameId, HumanDataBody data) => new()
         {
-            Detail = ModPackage.FromId(CatNo.mt_body_detail, data.detailId),
-            Sunburn = ModPackage.FromId(CatNo.mt_sunburn, data.sunburnId),
-            Nip = ModPackage.FromId(CatNo.mt_nip, data.nipId),
-            Underhair = ModPackage.FromId(CatNo.mt_underhair, data.underhairId)
+            Detail = gameId.ToMod(CatNo.mt_body_detail, data.detailId),
+            Sunburn = gameId.ToMod(CatNo.mt_sunburn, data.sunburnId),
+            Nip = gameId.ToMod(CatNo.mt_nip, data.nipId),
+            Underhair = gameId.ToMod(CatNo.mt_underhair, data.underhairId)
         };
     }
     [Extension<CharaMods, CoordMods>(Plugin.Name, "mods.json")]
@@ -363,16 +341,20 @@ namespace SardineTail
             Graphic = (limit & CharaLimit.Graphic) is CharaLimit.None ? Graphic : mods.Graphic,
             Coordinates = (limit & CharaLimit.Coorde) is CharaLimit.None ? Coordinates : mods.Coordinates,
         };
-        public CharaMods Convert(HumanData data) => this with
+
+        public CharaMods Convert(HumanData data) => Convert(data.ToGameId(), data);
+
+        CharaMods Convert(GameId gameId, HumanData data) => this with
         {
-            Body = BodyMods.ToMod(data.Custom.Body),
-            Face = FaceMods.ToMod(data.Custom.Face),
-            Graphic = ModPackage.FromId(CatNo.mt_ramp, data.Graphic.RampID),
-            Coordinates = data.Coordinates.Index().ToDictionary(tuple => tuple.Item2, tuple => CoordMods.ToMods(tuple.Item1))
+            Body = BodyMods.Store(gameId, data.Custom.Body),
+            Face = FaceMods.Store(gameId, data.Custom.Face),
+            Graphic = gameId.ToMod(CatNo.mt_ramp, data.Graphic.RampID),
+            Coordinates = data.Coordinates.Index().ToDictionary(tuple => tuple.Item2, tuple => CoordMods.Store(gameId, tuple.Item1))
         };
 
+
         public CoordMods Get(int coordinateType) =>
-            Coordinates.Defaults().GetValueOrDefault(coordinateType, new ());
+            Coordinates.Defaults().GetValueOrDefault(coordinateType, new());
 
         public CharaMods Merge(int coordinateType, CoordMods mods) => new()
         {
@@ -383,34 +365,36 @@ namespace SardineTail
             Coordinates = Coordinates.Merge(coordinateType, mods)
         };
 
-        internal void Apply(HumanData data)
+        internal void Apply(HumanData data) => Apply(data.ToGameId(), data);
+        void Apply(GameId gameId, HumanData data)
         {
-            data.Graphic.RampID = ModPackage.ToId(data.GameId(), CatNo.mt_ramp, Graphic, data.Graphic.RampID);
-            Body.Defaults().Apply(data.GameId(), data.Custom.Body);
-            Face.Defaults().Apply(data.GameId(), data.Custom.Face);
+            data.Graphic.RampID = gameId.ToId(CatNo.mt_ramp, Graphic, data.Graphic.RampID);
+            Body.Defaults().Apply(gameId, data.Custom.Body);
+            Face.Defaults().Apply(gameId, data.Custom.Face);
             Coordinates.Defaults(data.Coordinates.Count)
-                .ForEach((index, value) => value.Apply(data.GameId(), data.Coordinates[index]));
+                .ForEach((index, value) => value.Apply(gameId, data.Coordinates[index]));
         }
 
         internal static CharaMods Store(Human human, int figureId) =>
             Extension<CharaMods, CoordMods>.Humans[human] =
-                Extension<CharaMods, CoordMods>.Humans[human] with {
-                    Figure = ModPackage.FromId(CatNo.bo_body, figureId)
+                Extension<CharaMods, CoordMods>.Humans[human] with
+                {
+                    Figure = human.data.ToGameId().ToMod(CatNo.bo_body, figureId)
                 };
 
         internal static void Store(Human human) =>
-            Extension<CharaMods, CoordMods>.Humans[human] = ToMods(human, Extension<CharaMods, CoordMods>.Humans[human]);
+            Extension<CharaMods, CoordMods>.Humans[human] = Store(human.data.ToGameId(), human, Extension<CharaMods, CoordMods>.Humans[human]);
 
-        static CharaMods ToMods(Human human, CharaMods mods) => new CharaMods()
+        static CharaMods Store(GameId gameId, Human human, CharaMods mods) => new CharaMods()
         {
             Figure = mods.Figure,
-            Body = BodyMods.ToMod(human.data.Custom.Body),
-            Face = FaceMods.ToMod(human.data.Custom.Face),
-            Graphic = ModPackage.FromId(CatNo.mt_ramp, human.data.Graphic.RampID),
+            Body = BodyMods.Store(gameId, human.data.Custom.Body),
+            Face = FaceMods.Store(gameId, human.data.Custom.Face),
+            Graphic = gameId.ToMod(CatNo.mt_ramp, human.data.Graphic.RampID),
             Coordinates = human.data.Coordinates.Index()
-                .ToDictionary(tuple => tuple.Item2, tuple => CoordMods.ToMods(tuple.Item1))
+                .ToDictionary(tuple => tuple.Item2, tuple => CoordMods.Store(gameId, tuple.Item1))
         };
-        internal int FigureId(Human human) => ModPackage.ToId(human.data.GameId(), CatNo.bo_body, Figure, -1);
+        internal int FigureId(Human human) => human.data.ToGameId().ToId(CatNo.bo_body, Figure, -1);
     }
     public class LegacyCharaMods
     {

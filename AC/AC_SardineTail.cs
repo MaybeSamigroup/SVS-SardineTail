@@ -12,18 +12,13 @@ using CoastalSmell;
 
 namespace SardineTail
 {
-    internal abstract partial class ModPackage
-    {
-        internal static readonly int[] IDS = [30];
-    }
-
     static partial class Hooks
     {
         static void MaterialHelperLoadPatchMaterialPostfix() =>
             ModPackage.InitializePackages(Paths.GameRootPath);
 
         static void ChaListControlLoadListInfoAllPostfix() =>
-            Plugin.HardmodConversion.Value.Maybe(CategoryExtension.Convert);
+            Plugin.HardmodConversion.Value.Maybe(ModificationExtension.Convert);
 
         static Dictionary<string, MethodInfo[]> SpecPrefixes => new();
         static Dictionary<string, MethodInfo[]> SpecPostfixes => new()
@@ -38,33 +33,25 @@ namespace SardineTail
             ]
         };
     }
-    internal static partial class CategoryExtension
-    {
-        internal const string AssetPath = "lib";
-        internal const string MainManifest = "lib000_03";
-    }
-
-    internal static partial class IOExtension
-    {
-        internal static void OverrideColors(HumanBody body) =>
-            ToOverrideRenderers(body).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body._fileBody));
-        internal static void OverrideGraphic(HumanBody body) =>
-            body._graphicDisposables.Add(body._graphic.AddEvent(
-                ToOverrideRenderers(body).ToArray(), HumanGraphic.UpdateFlags.All)); 
-    }
 
     public partial class Plugin : BasePlugin
     {
+        public const GameId GAME_ID = GameId.AC1;
         public const string Process = "Aicomi";
         internal static ConfigEntry<bool> HardmodConversion;
+        internal static ConfigEntry<bool> CommonConversion;
         public Plugin() : base() =>
-            (Instance, DevelopmentMode, HardmodConversion) = (
+            (Instance, DevelopmentMode, HardmodConversion, CommonConversion) = (
                 this,
                 Config.Bind("General", "Enable development package loading.", false),
-                Config.Bind("General", "Enable hardmod conversion at startup.", false)
+                Config.Bind("General", "Enable hardmod conversion at startup.", false),
+                Config.Bind("General", "Enable MainManifest restricted hardmod conversion.", false)
             );
 
-        IDisposable[] Initialize() => [ModPackage.OnPrefabLoad.Where(_ => Config.Bind("General", "Enable runtime shader translation.", false).Value).Subscribe(TranslateShader)];
+        IDisposable[] Initialize() => [
+                AssetBundles.OnPrefabLoad.Where(_ => Config
+                    .Bind("General", "Enable runtime shader translation.", false).Value).Subscribe(TranslateShader)
+        ];
 
         static void TranslateShader(GameObject go) =>
             go.GetComponentsInChildren<Renderer>(true)

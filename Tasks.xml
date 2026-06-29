@@ -26,8 +26,12 @@
         </ProjectReference>
 		<Compile Include="../$(PluginName).cs"/>
 		<Compile Include="../Definitions.cs"/>
+		<Compile Include="../IOHelper.cs"/>
+		<Compile Include="../Parsers.cs"/>
+		<Compile Include="../Packages.cs"/>
 		<Compile Include="../Modifications.cs"/>
 		<Compile Include="../UnityFS.cs"/>
+		<Compile Include="../ZipEntryWrapper.cs"/>
 		<Compile Include="../7zip/ICoder.cs"/>
 		<Compile Include="../7zip/Common/*.cs"/>
 		<Compile Include="../7zip/Compress/LZ/*.cs"/>

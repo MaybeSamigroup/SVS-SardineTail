@@ -15,14 +15,13 @@ using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
-    internal abstract partial class ModPackage
+    public abstract partial class ModPackage
     {
-        internal static readonly int[] IDS = [0, 1, 10, 20, 30];
-        internal void Register(Category category, string modId, ListInfoBase info) =>
-            (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[GameId][category.Index].TryAdd(info.Id, info))
+        internal void Register(CategorySpec category, string modId, ListInfoBase info) =>
+            (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[(int)GameId][category.Index].TryAdd(info.Id, info))
             .Either(
                 () => Plugin.Instance.Log.LogMessage($"duplicate mod id detected. {PkgId}:{modId}"),
-                () => RegisterIdToMod(category.Index, info.Id, new ModInfo
+                () => Packages.Register(GameId, category.Index, info.Id, new ModInfo
                 {
                     PkgVersion = PkgVersion,
                     PkgId = PkgId,
@@ -32,11 +31,15 @@ namespace SardineTail
             );
     }
 
-    internal static partial class IOExtension
+    internal static partial class ModificationExtension
     {
+        internal static GameId ToGameId(this HumanData data) => GameIdSpec.FromCharaTag(data.Tag);
+
+        internal static GameId ToGameId(this HumanDataCoordinate data) => GameIdSpec.FromClothesTag(data.Tag);
+
         internal static void InitializeManifest(this int gameId, string path, string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles =
-                ExtendManifest(manifest).With(F.Apply(ModPackage.InitializePackages, gameId, path));
+                ExtendManifest(manifest).With(F.Apply(Packages.InitializePackages, (GameId)gameId, path));
 
         static string[] ExtendManifest(string manifest) =>
             AssetBundleManager.ManifestBundlePack[manifest].AllAssetBundles.Concat([Plugin.AssetBundle]).ToArray();
@@ -48,7 +51,7 @@ namespace SardineTail
 
         static UnityEngine.Object ToBodyAsset(string bundle, string asset, string _, Il2CppSystem.Type type) =>
             Plugin.AssetBundle.Equals(bundle)
-                ? ModPackage.ToAsset(asset.Split(':'), type)
+                ? AssetBundles.ToAsset(asset.Split(':'), type)
                 : AssetBundleManager.GetLoadedAssetBundle(bundle,
                     DigitalCraft.PathManager.Instance.GetMainManifestFromTag(ref GameTag)).Bundle.LoadAsset(asset, type);
 
@@ -81,11 +84,21 @@ namespace SardineTail
             body.human.data.IsAC ? ApplyColorsToRenderer(body) + StoreMaterial : ApplyColorsToRenderer(body);
         static IEnumerable<Renderer> RenderersToOverrideGraphic(HumanBody body) =>
             body.human.data.IsAC ? ToOverrideRenderers(body.GetRefObject(Table.RefObjKey.S_Son))
-                .Where(rend => MaterialBuffer.Remove(rend, out var material) && true.With(() => rend.material = material)) : ToOverrideRenderers(body); 
+                .Where(rend => MaterialBuffer.Remove(rend, out var material) && true.With(() => rend.material = material)) : ToOverrideRenderers(body);
         internal static void OverrideColors(HumanBody body) =>
             ToOverrideRenderers(body).ForEach(OverrideColorsActions(body));
         internal static void OverrideGraphic(HumanBody body) =>
             body._graphicDisposables.Add(body.graphic.AddEvent(RenderersToOverrideGraphic(body).ToArray(), HumanGraphic.UpdateFlags.All));
+
+        internal static IDisposable[] Initialize() => [
+            Extension<CharaMods, CoordMods>
+                .Translate<LegacyCharaMods>(Path.Combine(Plugin.Name, "modifications.json"), mods => mods),
+            ..Extension.Register<CharaMods, CoordMods>(),
+            Extension<CharaMods, CoordMods>.OnPreprocessChara.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension<CharaMods, CoordMods>.OnPreprocessCoord.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
+            Extension.OnLoadChara.Subscribe(CharaMods.Store),
+            Extension.OnLoadCoord.Subscribe(CoordMods.Store),
+        ];
     }
 
     static partial class Hooks
@@ -104,26 +117,14 @@ namespace SardineTail
             ],
         };
     }
-    internal static partial class CategoryExtension
-    {
-        internal static IDisposable[] Initialize() => [
-            Extension<CharaMods, CoordMods>
-                .Translate<LegacyCharaMods>(Path.Combine(Plugin.Name, "modifications.json"), mods => mods),
-            ..Extension.Register<CharaMods, CoordMods>(),
-            Extension<CharaMods, CoordMods>.OnPreprocessChara.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
-            Extension<CharaMods, CoordMods>.OnPreprocessCoord.Subscribe(tuple => tuple.Item2.Apply(tuple.Item1)),
-            Extension.OnLoadChara.Subscribe(CharaMods.Store),
-            Extension.OnLoadCoord.Subscribe(CoordMods.Store),
-        ];
-    }
- 
+
     [BepInDependency(VarietyOfScales.Plugin.Guid, BepInDependency.DependencyFlags.SoftDependency)]
     public partial class Plugin : BasePlugin
     {
         public const string Process = "DigitalCraft";
         public Plugin() : base() =>
             (Instance, DevelopmentMode) =
-                (this, DevelopmentMode = Config.Bind("General", "Enable development package loading.", false)); 
+                (this, DevelopmentMode = Config.Bind("General", "Enable development package loading.", false));
 
         IDisposable[] Initialize() => [];
     }

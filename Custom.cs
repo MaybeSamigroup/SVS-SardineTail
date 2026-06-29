@@ -23,23 +23,6 @@ using Ktype = ChaListDefine.KeyType;
 
 namespace SardineTail
 {
-    internal abstract partial class ModPackage
-    {
-        internal static void InitializePackages(string path) =>
-            InitializePackages(IDS[0], path);
-        internal void Register(Category category, string modId, ListInfoBase info) =>
-            (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[category.Index].TryAdd(info.Id, info))
-            .Either(
-                () => Plugin.Instance.Log.LogMessage($"duplicate mod id detected. {PkgId}:{modId}"),
-                () => RegisterIdToMod(category.Index, info.Id, new ModInfo
-                {
-                    PkgVersion = PkgVersion,
-                    PkgId = PkgId,
-                    ModId = modId,
-                    Category = category.Index,
-                })
-            );
-    }
 
     class FigureChoice
     {
@@ -50,9 +33,11 @@ namespace SardineTail
                 .Where(HumanCustom.Instance.IsMale()
                     ? entry => entry.Item2.GetInfoInt(Ktype.Sex) is 2
                     : entry => entry.Item2.GetInfoInt(Ktype.Sex) is 3)
-                .Select(entry => (entry.Item1,
-                    $"{ModPackage.FromId(CatNo.bo_body, entry.Item1).PkgId}:{entry.Item2.GetString(Ktype.Name)}"))
-                .Prepend((0, "<default>")).ToList();
+                .SelectMany(ToOption).Prepend((0, "<default>")).ToList();
+
+        static IEnumerable<(int Id, string label)> ToOption((int Id, ListInfoBase Info) entry) =>
+            Packages.TryGetValue(Plugin.GAME_ID, CatNo.bo_body, entry.Item1, out var mod)
+                ? [(entry.Id, $"{mod.PkgId}:{entry.Info.GetString(Ktype.Name)}")] : [];
 
         int FigureIdToOption(int id) =>
             Options.Index()
@@ -95,26 +80,50 @@ namespace SardineTail
                 .Subscribe(UGUI.Component<CharacterCreation.UI.ParameterWindow>(cmp => new FigureChoice(cmp)).Invoke),
             Extension.OnLoadCustomChara
                 .Select(human => Extension<CharaMods, CoordMods>.Humans[human].FigureId(human))
-                .Where(id => IOExtension.FigureId != id)
-                .Subscribe(id => (IOExtension.FigureId = id).With(Extension.HumanCustomReload))
+                .Where(id => ModificationExtension.FigureId != id)
+                .Subscribe(id => (ModificationExtension.FigureId = id).With(Extension.HumanCustomReload))
         ]);
     }
 
-    internal static partial class IOExtension
+    internal static partial class ModificationExtension
     {
         internal static int FigureId = -1;
+
         internal static void InitializeFigureId() => FigureId = -1;
+
+        internal static GameId ToGameId(this HumanData _) => Plugin.GAME_ID;
+
+        internal static GameId ToGameId(this HumanDataCoordinate _) => Plugin.GAME_ID;
+
+        internal static void OverrideColors(HumanBody body) =>
+#if Aicomi
+            ToOverrideRenderers(body).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body._fileBody));
+#else
+            ToOverrideRenderers(body).Select(renderer => renderer.material).ForEach(ApplyColors.Apply(body.fileBody));
+#endif
+
+        internal static void OverrideGraphic(HumanBody body) =>
+#if Aicomi
+            body._graphicDisposables.Add(body._graphic.AddEvent(ToOverrideRenderers(body).ToArray(), HumanGraphic.UpdateFlags.All));
+#else
+            body._graphicDisposables.Add(body.graphic.AddEvent(ToOverrideRenderers(body).ToArray(), HumanGraphic.UpdateFlags.All));
+#endif
+                
+
         internal static void OverrideFigure(Human human) =>
             FigureId = Extension<CharaMods, CoordMods>.Humans[human].FigureId(human);
+
         static UnityEngine.Object ToBodyAsset(string bundle, string asset, string manifest, Il2CppSystem.Type type) =>
             Plugin.AssetBundle.Equals(bundle)
-                ? ModPackage.ToAsset(asset.Split(':'), type)
+                ? AssetBundles.ToAsset(asset.Split(':'), type)
                 : AssetBundleManager.GetLoadedAssetBundle(bundle, manifest).Bundle.LoadAsset(asset, type);
+
         internal static UnityEngine.Object ToBodyPrefab(string name) =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
                 Ktype.MainAB, Ktype.MainData, Il2CppInterop.Runtime.Il2CppType.Of<GameObject>())
                 ?.With(obj => obj.name = name);
+
         internal static UnityEngine.Object ToBodyTexture() =>
             (FigureId < ModInfo.MIN_ID) ? null :
             ToBodyAsset(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId),
@@ -128,12 +137,10 @@ namespace SardineTail
         internal static NormalData ToBodyNormal(NormalData original) =>
             (FigureId < ModInfo.MIN_ID) ? original :
            ToBodyNormal(Human.lstCtrl.GetListInfo(CatNo.bo_body, FigureId)) ?? original;
-    }
-    internal static partial class CategoryExtension
-    {
+
         internal static IDisposable[] Initialize() => [
             SingletonInitializerExtension<HumanCustom>.OnStartup.Subscribe(_ => FigureChoice.Initialize()),
-            SingletonInitializerExtension<HumanCustom>.OnDestroy.Subscribe(_ => IOExtension.InitializeFigureId()),
+            SingletonInitializerExtension<HumanCustom>.OnDestroy.Subscribe(_ => InitializeFigureId()),
             Extension<CharaMods, CoordMods>.Translate<CoordMods>(Path.Combine(Plugin.Guid, "modifications.json"), mods => mods),
             Extension<CharaMods, CoordMods>.Translate<LegacyCharaMods>(Path.Combine(Plugin.Guid, "modifications.json"), mods => mods),
             Extension<CharaMods, CoordMods>.Translate<LegacyCharaMods>(Path.Combine(Plugin.Name, "modifications.json"), mods => mods),
@@ -144,6 +151,25 @@ namespace SardineTail
             Extension.OnPrepareSaveCoord.Subscribe(CharaMods.Store),
             ..Extension.RegisterConversion<CharaMods, CoordMods>(),
         ];
+    }
+
+    public abstract partial class ModPackage
+    {
+        internal static void InitializePackages(string path) =>
+            Plugin.GAME_ID.InitializePackages(path);
+
+        internal void Register(CategorySpec category, string modId, ListInfoBase info) =>
+            (ModToId.TryAdd(modId, info.Id) && Human.lstCtrl._table[category.Index].TryAdd(info.Id, info))
+            .Either(
+                () => Plugin.Instance.Log.LogMessage($"duplicate mod id detected. {PkgId}:{modId}"),
+                () => Packages.Register(Plugin.GAME_ID, category.Index, info.Id, new ModInfo
+                {
+                    PkgVersion = PkgVersion,
+                    PkgId = PkgId,
+                    ModId = modId,
+                    Category = category.Index,
+                })
+            );
     }
 
     public partial class Plugin : BasePlugin
