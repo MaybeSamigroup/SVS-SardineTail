@@ -57,7 +57,7 @@ namespace SardineTail
            id switch
            {
                GameId.AC1 or
-               GameId.AC2 => "ac_lib000_03",
+               GameId.AC2 => "lib000_03",
                _ => "abdata"
            };
 
